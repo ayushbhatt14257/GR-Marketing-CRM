@@ -35,7 +35,7 @@ const createProduct = asyncHandler(async (req, res) => {
     familyId,
     familyName: family.name,
     modelName: modelName.trim(),
-    sku: sku ? sku.trim().toUpperCase() : null,
+    sku: sku ? sku.trim().toUpperCase() : undefined,
     category: family.category,
     totalStock: totalStock || 0,
     lowStockThreshold: lowStockThreshold || 20,
@@ -66,7 +66,7 @@ const updateProduct = asyncHandler(async (req, res) => {
   }
 
   if (modelName) product.modelName = modelName.trim();
-  if (sku !== undefined) product.sku = sku ? sku.trim().toUpperCase() : null;
+  if (sku !== undefined) product.sku = sku ? sku.trim().toUpperCase() : undefined;
   if (isActive !== undefined) product.isActive = isActive;
   if (lowStockThreshold !== undefined) product.lowStockThreshold = lowStockThreshold;
   product.lastUpdatedBy = req.user._id;

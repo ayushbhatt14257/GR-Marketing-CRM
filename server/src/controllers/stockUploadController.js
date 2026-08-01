@@ -67,9 +67,11 @@ const previewUpload = asyncHandler(async (req, res) => {
 });
 
 // POST /api/stock/upload/commit
-// Body: { familyId, toUpdate: [{productId, quantity}], toCreate: [{modelName, quantity}] }
+// Body: { familyId, mode: 'add'|'set', toUpdate: [{productId, quantity}], toCreate: [{modelName, quantity}] }
+// mode 'add' (default) adds quantity to existing stock (delta/replenishment sheet).
+// mode 'set' treats quantity as the new exact total (physical stock count / reconciliation sheet).
 const commitUpload = asyncHandler(async (req, res) => {
-  const { familyId, toUpdate = [], toCreate = [] } = req.body;
+  const { familyId, mode = 'add', toUpdate = [], toCreate = [] } = req.body;
   const family = await ProductFamily.findById(familyId);
   if (!family) {
     res.status(400);
@@ -83,17 +85,22 @@ const commitUpload = asyncHandler(async (req, res) => {
     const product = await Product.findById(row.productId);
     if (!product) continue;
 
-    product.totalStock += Number(row.quantity);
+    const previousStock = product.totalStock;
+    const newQty = Number(row.quantity);
+    product.totalStock = mode === 'set' ? newQty : previousStock + newQty;
     product.lastUpdatedBy = req.user._id;
     await product.save();
 
+    const delta = product.totalStock - previousStock;
     await StockLedger.create({
       productId: product._id,
-      quantity: Number(row.quantity),
+      quantity: delta,
       addedBy: req.user._id,
       addedByName: req.user.name,
       source: 'excel',
-      note: `Excel bulk upload (${family.name})`,
+      note: mode === 'set'
+        ? `Excel bulk upload — stock set to ${newQty} (${family.name})`
+        : `Excel bulk upload (${family.name})`,
     });
     updated += 1;
   }

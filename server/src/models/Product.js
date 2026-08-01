@@ -9,7 +9,7 @@ const productSchema = new mongoose.Schema(
     familyId: { type: mongoose.Schema.Types.ObjectId, ref: 'ProductFamily', required: true, index: true },
     familyName: { type: String, required: true, trim: true },
     modelName: { type: String, required: true, trim: true }, // e.g. "1+Nord 4 (5G)"
-    sku: { type: String, trim: true, default: null, uppercase: true },
+    sku: { type: String, trim: true, uppercase: true }, // omitted entirely when not provided — NEVER default to null (breaks unique index, see below)
     category: { type: String, enum: ['fonfox', 'supreme'], required: true },
     isActive: { type: Boolean, default: true },
     // Physical stock on hand. "Available to promise" is ALWAYS computed live
@@ -23,7 +23,7 @@ const productSchema = new mongoose.Schema(
 );
 
 productSchema.index({ familyId: 1, modelName: 1 }, { unique: true, partialFilterExpression: { isDeleted: false } });
-productSchema.index({ sku: 1 }, { unique: true, sparse: true });
+productSchema.index({ sku: 1 }, { unique: true, partialFilterExpression: { sku: { $type: 'string' } } });
 productSchema.index({ category: 1, isActive: 1 });
 productSchema.index({ familyId: 1, isActive: 1 });
 
