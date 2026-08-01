@@ -48,13 +48,40 @@ async function getQueuePosition(productId, orderId) {
   return idx === -1 ? null : idx + 1;
 }
 
-// Bulk stock summary for a list of product IDs — used on lead/order entry pages
-// so the UI can show live availability while a user is picking products.
+// Bulk stock summary for a list of product IDs — used on lead/order entry pages,
+// product listings, and family aggregates so the UI can show live availability.
+//
+// IMPORTANT: this does ONE database query total, regardless of how many product
+// IDs are passed in, then aggregates reservations in memory. The naive version
+// (looping getReservedQty per product) does N sequential queries — with 100+
+// products that's 100+ round trips and multi-second page loads. Never revert
+// to a per-product loop here.
 async function getStockSummary(productIds) {
-  const products = await Product.find({ _id: { $in: productIds } }).lean();
+  if (!productIds || productIds.length === 0) return {};
+
+  const [products, activeOrders] = await Promise.all([
+    Product.find({ _id: { $in: productIds } }).select('totalStock lowStockThreshold').lean(),
+    Order.find({
+      'items.productId': { $in: productIds },
+      status: { $in: Order.ACTIVE_STATUSES },
+      isDeleted: false,
+    }).select('items').lean(),
+  ]);
+
+  // Sum remaining (unfulfilled) qty per product across all active orders, in one pass.
+  const reservedByProduct = {};
+  for (const order of activeOrders) {
+    for (const item of order.items) {
+      const remaining = item.requestedQty - item.dispatchedQty - item.cancelledQty;
+      if (remaining <= 0) continue;
+      const key = String(item.productId);
+      reservedByProduct[key] = (reservedByProduct[key] || 0) + remaining;
+    }
+  }
+
   const result = {};
   for (const p of products) {
-    const reserved = await getReservedQty(p._id);
+    const reserved = reservedByProduct[String(p._id)] || 0;
     result[p._id] = {
       totalStock: p.totalStock,
       reserved,
