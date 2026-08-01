@@ -60,7 +60,7 @@ const listLeads = asyncHandler(async (req, res) => {
     Lead.find(filter)
       .populate('customerId', 'name')
       .populate('ownerId', 'name')
-      .populate('productIds', 'name category')
+      .populate('productIds', 'modelName familyName category')
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(limit)

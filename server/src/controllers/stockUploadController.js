@@ -1,10 +1,11 @@
 const ExcelJS = require('exceljs');
 const asyncHandler = require('../utils/asyncHandler');
 const Product = require('../models/Product');
+const ProductFamily = require('../models/ProductFamily');
 const StockLedger = require('../models/StockLedger');
 
-// Parses uploaded workbook -> [{ name, quantity }]. Expects columns:
-// Column A = Product Name, Column B = Quantity (header row skipped).
+// Parses uploaded workbook -> [{ name, quantity }]. Expects two columns:
+// Column A = Item / Model name, Column B = Quantity (header row skipped).
 async function parseWorkbook(buffer) {
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(buffer);
@@ -14,7 +15,10 @@ async function parseWorkbook(buffer) {
   sheet.eachRow((row, rowNumber) => {
     if (rowNumber === 1) return; // header
     const name = row.getCell(1).text?.trim();
-    const qty = Number(row.getCell(2).value);
+    // Quantity cells sometimes come through as "1320 N" style text (per the
+    // reference sheet) — strip anything non-numeric before parsing.
+    const rawQty = row.getCell(2).text || row.getCell(2).value;
+    const qty = Number(String(rawQty).replace(/[^\d.]/g, ''));
     if (name && !Number.isNaN(qty) && qty > 0) {
       rows.push({ name, quantity: qty });
     }
@@ -23,51 +27,61 @@ async function parseWorkbook(buffer) {
   return rows;
 }
 
-// POST /api/stock/upload/preview  (multipart, field "file", body.category = fonfox|supreme)
-// Returns matched vs unmatched rows WITHOUT committing anything.
+// POST /api/stock/upload/preview  (multipart: file, body.familyId)
+// Returns which rows match EXISTING models (will top up stock) vs which are
+// NEW model names (will be created under this family with that as initial stock).
 const previewUpload = asyncHandler(async (req, res) => {
-  const { category } = req.body;
+  const { familyId } = req.body;
   if (!req.file) {
     res.status(400);
     throw new Error('Excel file is required');
   }
-  if (!['fonfox', 'supreme'].includes(category)) {
+  const family = await ProductFamily.findById(familyId);
+  if (!family) {
     res.status(400);
-    throw new Error('Category must be fonfox or supreme');
+    throw new Error('Select a valid product family first');
   }
 
   const rows = await parseWorkbook(req.file.buffer);
-  const products = await Product.find({ category, isDeleted: false }).lean();
-  const byName = new Map(products.map((p) => [p.name.trim().toLowerCase(), p]));
+  if (!rows.length) {
+    res.status(400);
+    throw new Error('No valid rows found — expected columns: Item name, Quantity');
+  }
 
-  const matched = [];
-  const unmatched = [];
+  const existing = await Product.find({ familyId, isDeleted: false }).lean();
+  const byName = new Map(existing.map((p) => [p.modelName.trim().toLowerCase(), p]));
+
+  const toUpdate = [];
+  const toCreate = [];
 
   for (const row of rows) {
-    const product = byName.get(row.name.trim().toLowerCase());
-    if (product) {
-      matched.push({ productId: product._id, name: product.name, quantity: row.quantity, currentStock: product.totalStock });
+    const found = byName.get(row.name.trim().toLowerCase());
+    if (found) {
+      toUpdate.push({ productId: found._id, modelName: found.modelName, quantity: row.quantity, currentStock: found.totalStock });
     } else {
-      unmatched.push(row);
+      toCreate.push({ modelName: row.name, quantity: row.quantity });
     }
   }
 
-  res.json({ matched, unmatched, category });
+  res.json({ familyId, familyName: family.name, category: family.category, toUpdate, toCreate });
 });
 
 // POST /api/stock/upload/commit
-// Body: { category, rows: [{ productId, quantity }] }  -- from confirmed preview
+// Body: { familyId, toUpdate: [{productId, quantity}], toCreate: [{modelName, quantity}] }
 const commitUpload = asyncHandler(async (req, res) => {
-  const { category, rows } = req.body;
-  if (!Array.isArray(rows) || !rows.length) {
+  const { familyId, toUpdate = [], toCreate = [] } = req.body;
+  const family = await ProductFamily.findById(familyId);
+  if (!family) {
     res.status(400);
-    throw new Error('No rows to commit');
+    throw new Error('Invalid product family');
   }
 
-  const results = [];
-  for (const row of rows) {
+  let updated = 0;
+  let created = 0;
+
+  for (const row of toUpdate) {
     const product = await Product.findById(row.productId);
-    if (!product || product.category !== category) continue;
+    if (!product) continue;
 
     product.totalStock += Number(row.quantity);
     product.lastUpdatedBy = req.user._id;
@@ -79,13 +93,33 @@ const commitUpload = asyncHandler(async (req, res) => {
       addedBy: req.user._id,
       addedByName: req.user.name,
       source: 'excel',
-      note: `Excel bulk upload (${category})`,
+      note: `Excel bulk upload (${family.name})`,
     });
-
-    results.push({ productId: product._id, name: product.name, newTotal: product.totalStock });
+    updated += 1;
   }
 
-  res.json({ updated: results.length, results });
+  for (const row of toCreate) {
+    const product = await Product.create({
+      familyId,
+      familyName: family.name,
+      modelName: row.modelName.trim(),
+      category: family.category,
+      totalStock: Number(row.quantity),
+      lastUpdatedBy: req.user._id,
+    });
+
+    await StockLedger.create({
+      productId: product._id,
+      quantity: Number(row.quantity),
+      addedBy: req.user._id,
+      addedByName: req.user.name,
+      source: 'excel',
+      note: `Excel bulk upload — new model (${family.name})`,
+    });
+    created += 1;
+  }
+
+  res.json({ updated, created });
 });
 
 module.exports = { previewUpload, commitUpload };

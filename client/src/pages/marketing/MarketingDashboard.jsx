@@ -84,7 +84,7 @@ export default function MarketingDashboard() {
           <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-2">
             {data.frequentProductsStock.map((p) => (
               <div key={p._id} className="flex items-center justify-between px-3 py-2 rounded-lg bg-gray-50 dark:bg-ink-800 text-sm">
-                <span>{p.name}</span>
+                <span>{p.familyName} — {p.modelName}</span>
                 <span className={p.stock?.lowStock ? 'text-red-500 font-semibold' : 'text-gray-500'}>{p.stock?.available} avail</span>
               </div>
             ))}

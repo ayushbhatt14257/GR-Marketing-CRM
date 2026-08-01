@@ -87,7 +87,7 @@ function OrderRow({ order, onRefresh, canManage, marketingUsers }) {
                 const remaining = item.requestedQty - item.dispatchedQty - item.cancelledQty;
                 return (
                   <div key={item.productId?._id || item.productId} className="flex items-center justify-between text-sm">
-                    <span>{item.productId?.name || 'Product'} — requested {item.requestedQty}, dispatched {item.dispatchedQty}, remaining {remaining}</span>
+                    <span>{item.productId ? `${item.productId.familyName} — ${item.productId.modelName}` : 'Product'} — requested {item.requestedQty}, dispatched {item.dispatchedQty}, remaining {remaining}</span>
                     {canAct && !['cancelled', 'delivered'].includes(order.status) && remaining > 0 && (
                       <input
                         type="number" min={0} max={remaining} placeholder="Qty"

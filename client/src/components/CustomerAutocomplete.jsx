@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Search, UserPlus, Check, AlertTriangle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { customerApi } from '../api/endpoints';
+import IconInput from './IconInput';
 
 // Props:
 // - ownerId: required when creator is not the owning marketing user (dispatch/admin flows)
@@ -56,15 +57,14 @@ export default function CustomerAutocomplete({ ownerId, value, onChange, created
   return (
     <div className="relative">
       <div className="relative">
-        <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-        <input
-          className="input-field pl-10"
+        <IconInput
+          icon={Search}
           placeholder="Type to search or add customer..."
           value={query}
           onChange={(e) => search(e.target.value)}
           onFocus={() => query && setOpen(true)}
         />
-        {value && <Check size={16} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-accent-500" />}
+        {value && <Check size={16} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-accent-500 pointer-events-none" />}
       </div>
 
       {open && query.trim() && (

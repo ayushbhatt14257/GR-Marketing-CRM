@@ -74,7 +74,7 @@ const listOrders = asyncHandler(async (req, res) => {
       .populate('customerId', 'name')
       .populate('ownerId', 'name')
       .populate('createdBy', 'name')
-      .populate('items.productId', 'name category')
+      .populate('items.productId', 'modelName familyName category')
       .sort({ priority: -1, createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(limit)
@@ -91,7 +91,7 @@ const getOrder = asyncHandler(async (req, res) => {
     .populate('customerId', 'name')
     .populate('ownerId', 'name')
     .populate('createdBy', 'name')
-    .populate('items.productId', 'name category')
+    .populate('items.productId', 'modelName familyName category')
     .lean();
   if (!order) {
     res.status(404);

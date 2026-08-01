@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 import { Sparkles, Lock, Mail, Flame } from 'lucide-react';
 import { authApi } from '../api/endpoints';
 import { useAuthStore } from '../store/authStore';
+import IconInput from '../components/IconInput';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -59,23 +60,17 @@ export default function LoginPage() {
         <form onSubmit={submit} className="mt-8 space-y-4">
           <div>
             <label className="text-sm font-medium text-gray-600 dark:text-gray-300 mb-1 block">Email</label>
-            <div className="relative">
-              <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input
-                type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
-                className="input-field pl-10" placeholder="you@grmarketing.com"
-              />
-            </div>
+            <IconInput
+              icon={Mail} type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@grmarketing.com"
+            />
           </div>
           <div>
             <label className="text-sm font-medium text-gray-600 dark:text-gray-300 mb-1 block">Password</label>
-            <div className="relative">
-              <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input
-                type="password" required value={password} onChange={(e) => setPassword(e.target.value)}
-                className="input-field pl-10" placeholder="••••••••"
-              />
-            </div>
+            <IconInput
+              icon={Lock} type="password" required value={password} onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+            />
           </div>
 
           <button type="submit" disabled={loading} className="btn-primary w-full mt-2">

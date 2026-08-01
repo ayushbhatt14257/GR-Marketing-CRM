@@ -1,32 +1,42 @@
 const asyncHandler = require('../utils/asyncHandler');
 const Product = require('../models/Product');
+const ProductFamily = require('../models/ProductFamily');
 const StockLedger = require('../models/StockLedger');
 const { getStockSummary } = require('../services/stockService');
 
-// GET /api/products?category=fonfox&active=true
+// GET /api/products?familyId=&category=&active=true
 const listProducts = asyncHandler(async (req, res) => {
   const filter = { isDeleted: false };
+  if (req.query.familyId) filter.familyId = req.query.familyId;
   if (req.query.category) filter.category = req.query.category;
   if (req.query.active === 'true') filter.isActive = true;
 
-  const products = await Product.find(filter).sort({ name: 1 }).lean();
+  const products = await Product.find(filter).sort({ modelName: 1 }).lean();
   const summary = await getStockSummary(products.map((p) => p._id));
 
   res.json(products.map((p) => ({ ...p, stock: summary[p._id] })));
 });
 
-// POST /api/products  (warehouse/admin)
+// POST /api/products  (warehouse/admin) - add a single model under a family
 const createProduct = asyncHandler(async (req, res) => {
-  const { name, sku, category, totalStock, lowStockThreshold } = req.body;
-  if (!name || !category) {
+  const { familyId, modelName, sku, totalStock, lowStockThreshold } = req.body;
+  if (!familyId || !modelName) {
     res.status(400);
-    throw new Error('Name and category are required');
+    throw new Error('Family and model name are required');
+  }
+
+  const family = await ProductFamily.findById(familyId);
+  if (!family) {
+    res.status(404);
+    throw new Error('Product family not found');
   }
 
   const product = await Product.create({
-    name: name.trim(),
+    familyId,
+    familyName: family.name,
+    modelName: modelName.trim(),
     sku: sku ? sku.trim().toUpperCase() : null,
-    category,
+    category: family.category,
     totalStock: totalStock || 0,
     lowStockThreshold: lowStockThreshold || 20,
     lastUpdatedBy: req.user._id,
@@ -39,7 +49,7 @@ const createProduct = asyncHandler(async (req, res) => {
       addedBy: req.user._id,
       addedByName: req.user.name,
       source: 'manual',
-      note: 'Initial stock on product creation',
+      note: 'Initial stock on model creation',
     });
   }
 
@@ -48,14 +58,14 @@ const createProduct = asyncHandler(async (req, res) => {
 
 // PATCH /api/products/:id
 const updateProduct = asyncHandler(async (req, res) => {
-  const { name, sku, isActive, lowStockThreshold } = req.body;
+  const { modelName, sku, isActive, lowStockThreshold } = req.body;
   const product = await Product.findById(req.params.id);
   if (!product) {
     res.status(404);
     throw new Error('Product not found');
   }
 
-  if (name) product.name = name.trim();
+  if (modelName) product.modelName = modelName.trim();
   if (sku !== undefined) product.sku = sku ? sku.trim().toUpperCase() : null;
   if (isActive !== undefined) product.isActive = isActive;
   if (lowStockThreshold !== undefined) product.lowStockThreshold = lowStockThreshold;
