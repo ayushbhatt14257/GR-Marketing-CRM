@@ -92,4 +92,5 @@ export const dashboardApi = {
   admin: () => client.get('/dashboard/admin'),
   heatmap: (userId) => client.get('/dashboard/heatmap', { params: { userId } }),
   analytics: () => client.get('/dashboard/analytics'),
+  attendance: (params) => client.get('/dashboard/attendance', { params }),
 };

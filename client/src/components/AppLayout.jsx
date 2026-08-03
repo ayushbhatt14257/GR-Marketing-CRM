@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import {
   LayoutDashboard, UserPlus, Users, ShoppingCart, Package, Truck,
   Warehouse, Settings, LogOut, Moon, Sun, Megaphone, ListChecks, ClipboardList,
-  BarChart3, FileSpreadsheet,
+  BarChart3, FileSpreadsheet, CalendarCheck,
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { useThemeStore } from '../store/themeStore';
@@ -47,6 +47,7 @@ const NAV = {
     { to: '/stock-upload', label: 'Stock Upload', icon: Truck },
     { to: '/users', label: 'Users', icon: Users },
     { to: '/analytics', label: 'Analytics', icon: BarChart3 },
+    { to: '/attendance', label: 'Attendance', icon: CalendarCheck },
     { to: '/book-match', label: 'Book Match', icon: FileSpreadsheet },
     { to: '/tasks', label: 'Tasks', icon: ClipboardList },
     { to: '/announcements', label: 'Announcements', icon: Megaphone },

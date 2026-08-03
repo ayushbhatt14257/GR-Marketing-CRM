@@ -163,4 +163,55 @@ const analytics = asyncHandler(async (req, res) => {
   });
 });
 
-module.exports = { marketingDashboard, warehouseDashboard, dispatchDashboard, adminDashboard, heatmap, analytics };
+// GET /api/dashboard/attendance  (admin only)
+// Returns every active user with today's login status, points, streak, and a
+// 7-day attendance grid (like the old CRM's weekly view). Built with exactly
+// 2 queries total (users + activity logs), never a per-user loop — same
+// scaling lesson as the stock engine fixes.
+const attendance = asyncHandler(async (req, res) => {
+  const today = toISTDateKey();
+  const from = istDateKeyDaysAgo(6); // today + 6 back = 7 days total
+
+  const filter = { isActive: true };
+  if (req.query.role) filter.role = req.query.role;
+
+  const [users, logs] = await Promise.all([
+    User.find(filter).select('-passwordHash').sort({ name: 1 }).lean(),
+    ActivityLog.find({ dateKey: { $gte: from } }).select('userId dateKey loggedIn').lean(),
+  ]);
+
+  // Build the list of the last 7 IST day-keys, oldest first.
+  const dayKeys = [];
+  for (let i = 6; i >= 0; i--) dayKeys.push(istDateKeyDaysAgo(i));
+
+  const logsByUser = {};
+  for (const log of logs) {
+    const uid = String(log.userId);
+    if (!logsByUser[uid]) logsByUser[uid] = {};
+    logsByUser[uid][log.dateKey] = log.loggedIn;
+  }
+
+  const result = users.map((u) => {
+    const userLogs = logsByUser[String(u._id)] || {};
+    const week = dayKeys.map((dateKey) => ({ dateKey, loggedIn: !!userLogs[dateKey] }));
+    const activeDays = week.filter((d) => d.loggedIn).length;
+
+    return {
+      _id: u._id,
+      name: u.name,
+      email: u.email,
+      role: u.role,
+      totalPoints: u.totalPoints,
+      monthlyPoints: u.monthlyPoints,
+      currentStreak: u.currentStreak,
+      longestStreak: u.longestStreak,
+      loggedInToday: u.lastLoginDate === today,
+      week,
+      activeDays,
+    };
+  });
+
+  res.json({ dayKeys, users: result });
+});
+
+module.exports = { marketingDashboard, warehouseDashboard, dispatchDashboard, adminDashboard, heatmap, analytics, attendance };

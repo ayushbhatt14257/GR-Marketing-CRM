@@ -27,6 +27,7 @@ import UserDetailPage from './pages/admin/UserDetailPage';
 import CustomersPage from './pages/admin/CustomersPage';
 import AnalyticsPage from './pages/admin/AnalyticsPage';
 import BookMatchPage from './pages/admin/BookMatchPage';
+import AttendancePage from './pages/admin/AttendancePage';
 
 import OrdersPage from './pages/shared/OrdersPage';
 import TasksPage from './pages/shared/TasksPage';
@@ -101,6 +102,7 @@ export default function App() {
             <Route path="/customers" element={<CustomersPage />} />
             <Route path="/analytics" element={<AnalyticsPage />} />
             <Route path="/book-match" element={<BookMatchPage />} />
+            <Route path="/attendance" element={<AttendancePage />} />
           </Route>
         </Route>
       </Route>
