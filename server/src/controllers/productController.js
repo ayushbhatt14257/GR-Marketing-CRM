@@ -111,4 +111,18 @@ const getLedger = asyncHandler(async (req, res) => {
   res.json(ledger);
 });
 
-module.exports = { listProducts, createProduct, updateProduct, stockIn, getLedger };
+// DELETE /api/products/:id  (admin only) - soft delete
+const deleteProduct = asyncHandler(async (req, res) => {
+  const product = await Product.findById(req.params.id);
+  if (!product) {
+    res.status(404);
+    throw new Error('Product not found');
+  }
+  product.isDeleted = true;
+  product.isActive = false;
+  product.lastUpdatedBy = req.user._id;
+  await product.save();
+  res.json({ message: 'Model deleted' });
+});
+
+module.exports = { listProducts, createProduct, updateProduct, stockIn, getLedger, deleteProduct };

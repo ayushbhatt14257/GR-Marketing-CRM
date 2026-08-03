@@ -70,6 +70,11 @@ const previewUpload = asyncHandler(async (req, res) => {
 // Body: { familyId, mode: 'add'|'set', toUpdate: [{productId, quantity}], toCreate: [{modelName, quantity}] }
 // mode 'add' (default) adds quantity to existing stock (delta/replenishment sheet).
 // mode 'set' treats quantity as the new exact total (physical stock count / reconciliation sheet).
+//
+// IMPORTANT: this uses bulkWrite/insertMany (a handful of round trips total)
+// rather than looping findById+save per row. A per-row loop over 100+ models
+// means 100+ sequential DB calls — that's what caused multi-minute hangs on
+// large sheets before. Never revert to a per-row await loop here.
 const commitUpload = asyncHandler(async (req, res) => {
   const { familyId, mode = 'add', toUpdate = [], toCreate = [] } = req.body;
   const family = await ProductFamily.findById(familyId);
@@ -80,50 +85,72 @@ const commitUpload = asyncHandler(async (req, res) => {
 
   let updated = 0;
   let created = 0;
+  const ledgerDocs = [];
 
-  for (const row of toUpdate) {
-    const product = await Product.findById(row.productId);
-    if (!product) continue;
+  if (toUpdate.length) {
+    const ids = toUpdate.map((r) => r.productId);
+    const existing = await Product.find({ _id: { $in: ids } }).select('totalStock').lean();
+    const stockById = new Map(existing.map((p) => [String(p._id), p.totalStock]));
 
-    const previousStock = product.totalStock;
-    const newQty = Number(row.quantity);
-    product.totalStock = mode === 'set' ? newQty : previousStock + newQty;
-    product.lastUpdatedBy = req.user._id;
-    await product.save();
+    const bulkOps = [];
+    for (const row of toUpdate) {
+      const previousStock = stockById.get(String(row.productId));
+      if (previousStock === undefined) continue; // product no longer exists — skip safely
+      const qty = Number(row.quantity);
+      const newStock = mode === 'set' ? qty : previousStock + qty;
+      const delta = newStock - previousStock;
 
-    const delta = product.totalStock - previousStock;
-    await StockLedger.create({
-      productId: product._id,
-      quantity: delta,
-      addedBy: req.user._id,
-      addedByName: req.user.name,
-      source: 'excel',
-      note: mode === 'set'
-        ? `Excel bulk upload — stock set to ${newQty} (${family.name})`
-        : `Excel bulk upload (${family.name})`,
-    });
-    updated += 1;
+      bulkOps.push({
+        updateOne: {
+          filter: { _id: row.productId },
+          update: { $set: { totalStock: newStock, lastUpdatedBy: req.user._id } },
+        },
+      });
+      ledgerDocs.push({
+        productId: row.productId,
+        quantity: delta,
+        addedBy: req.user._id,
+        addedByName: req.user.name,
+        source: 'excel',
+        note: mode === 'set'
+          ? `Excel bulk upload — stock set to ${qty} (${family.name})`
+          : `Excel bulk upload (${family.name})`,
+      });
+    }
+
+    if (bulkOps.length) {
+      await Product.bulkWrite(bulkOps);
+      updated = bulkOps.length;
+    }
   }
 
-  for (const row of toCreate) {
-    const product = await Product.create({
+  if (toCreate.length) {
+    const docs = toCreate.map((row) => ({
       familyId,
       familyName: family.name,
       modelName: row.modelName.trim(),
       category: family.category,
       totalStock: Number(row.quantity),
       lastUpdatedBy: req.user._id,
-    });
+    }));
 
-    await StockLedger.create({
-      productId: product._id,
-      quantity: Number(row.quantity),
-      addedBy: req.user._id,
-      addedByName: req.user.name,
-      source: 'excel',
-      note: `Excel bulk upload — new model (${family.name})`,
+    const inserted = await Product.insertMany(docs, { ordered: false });
+    created = inserted.length;
+
+    inserted.forEach((product, i) => {
+      ledgerDocs.push({
+        productId: product._id,
+        quantity: docs[i].totalStock,
+        addedBy: req.user._id,
+        addedByName: req.user.name,
+        source: 'excel',
+        note: `Excel bulk upload — new model (${family.name})`,
+      });
     });
-    created += 1;
+  }
+
+  if (ledgerDocs.length) {
+    await StockLedger.insertMany(ledgerDocs, { ordered: false });
   }
 
   res.json({ updated, created });

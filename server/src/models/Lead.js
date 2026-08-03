@@ -11,7 +11,8 @@ const leadSchema = new mongoose.Schema(
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
 
     category: { type: String, enum: ['fonfox', 'supreme'], required: true },
-    productIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Product' }],
+    familyIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'ProductFamily' }], // which product families were discussed
+    productIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Product' }], // legacy — kept for old records, no longer set by the lead form
 
     talkRegarding: { type: String, enum: TALK_REGARDING, required: true },
     nextFollowUpDate: { type: Date, default: null }, // required for follow_up / call_later

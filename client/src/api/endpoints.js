@@ -10,11 +10,13 @@ export const customerApi = {
   search: (q, ownerId) => client.get('/customers/search', { params: { q, ownerId } }),
   resolve: (data) => client.post('/customers/resolve', data),
   list: (params) => client.get('/customers', { params }),
+  remove: (id) => client.delete(`/customers/${id}`),
 };
 
 export const leadApi = {
   create: (data) => client.post('/leads', data),
   list: (params) => client.get('/leads', { params }),
+  summary: (params) => client.get('/leads/summary', { params }),
   close: (id) => client.patch(`/leads/${id}/close`),
   reassign: (id, ownerId) => client.patch(`/leads/${id}/reassign`, { ownerId }),
 };
@@ -35,6 +37,7 @@ export const productFamilyApi = {
   list: (params) => client.get('/product-families', { params }),
   create: (data) => client.post('/product-families', data),
   update: (id, data) => client.patch(`/product-families/${id}`, data),
+  remove: (id) => client.delete(`/product-families/${id}`),
 };
 
 export const productApi = {
@@ -43,6 +46,7 @@ export const productApi = {
   update: (id, data) => client.patch(`/products/${id}`, data),
   stockIn: (id, data) => client.post(`/products/${id}/stock-in`, data),
   ledger: (id) => client.get(`/products/${id}/ledger`),
+  remove: (id) => client.delete(`/products/${id}`),
 };
 
 export const stockUploadApi = {

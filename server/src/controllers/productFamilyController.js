@@ -57,4 +57,21 @@ const updateFamily = asyncHandler(async (req, res) => {
   res.json(family);
 });
 
-module.exports = { listFamilies, createFamily, updateFamily };
+// DELETE /api/product-families/:id  (admin only) - soft delete, also deactivates its models
+const deleteFamily = asyncHandler(async (req, res) => {
+  const family = await ProductFamily.findById(req.params.id);
+  if (!family) {
+    res.status(404);
+    throw new Error('Product family not found');
+  }
+  family.isDeleted = true;
+  family.isActive = false;
+  family.lastUpdatedBy = req.user._id;
+  await family.save();
+
+  await Product.updateMany({ familyId: family._id }, { isDeleted: true, isActive: false, lastUpdatedBy: req.user._id });
+
+  res.json({ message: 'Product family deleted' });
+});
+
+module.exports = { listFamilies, createFamily, updateFamily, deleteFamily };

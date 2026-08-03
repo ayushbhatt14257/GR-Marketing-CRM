@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
+import toast from 'react-hot-toast';
+import { Trash2 } from 'lucide-react';
 import { customerApi } from '../../api/endpoints';
 
 export default function CustomersPage() {
@@ -7,10 +9,25 @@ export default function CustomersPage() {
   const [q, setQ] = useState('');
   const [page, setPage] = useState(1);
   const [pages, setPages] = useState(1);
+  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    customerApi.list({ q, page, limit: 25 }).then(({ data }) => { setCustomers(data.items); setPages(data.pages); });
-  }, [q, page]);
+  const load = () => {
+    setLoading(true);
+    customerApi.list({ q, page, limit: 25 }).then(({ data }) => {
+      setCustomers(data.items); setPages(data.pages); setLoading(false);
+    });
+  };
+
+  useEffect(() => { load(); }, [q, page]);
+
+  const remove = async (id, name) => {
+    if (!confirm(`Delete customer "${name}"? Their leads/orders history stays intact, but they'll no longer appear in search or new lead/order creation.`)) return;
+    try {
+      await customerApi.remove(id);
+      toast.success('Customer deleted');
+      load();
+    } catch (err) { toast.error(err.response?.data?.message || 'Failed'); }
+  };
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
@@ -20,7 +37,7 @@ export default function CustomersPage() {
       <div className="card overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 dark:bg-ink-800 text-left text-xs text-gray-500">
-            <tr><th className="px-4 py-3">Name</th><th className="px-4 py-3">Owner</th><th className="px-4 py-3">Created via</th><th className="px-4 py-3">Added on</th></tr>
+            <tr><th className="px-4 py-3">Name</th><th className="px-4 py-3">Owner</th><th className="px-4 py-3">Created via</th><th className="px-4 py-3">Added on</th><th className="px-4 py-3"></th></tr>
           </thead>
           <tbody>
             {customers.map((c) => (
@@ -29,8 +46,14 @@ export default function CustomersPage() {
                 <td className="px-4 py-3 text-gray-500">{c.ownerId?.name}</td>
                 <td className="px-4 py-3 capitalize text-gray-500">{c.createdVia}</td>
                 <td className="px-4 py-3 text-xs text-gray-400">{new Date(c.createdAt).toLocaleDateString()}</td>
+                <td className="px-4 py-3">
+                  <button onClick={() => remove(c._id, c.name)} className="text-gray-400 hover:text-red-500"><Trash2 size={14} /></button>
+                </td>
               </tr>
             ))}
+            {!loading && customers.length === 0 && (
+              <tr><td colSpan={5} className="px-4 py-8 text-center text-gray-400">No customers found.</td></tr>
+            )}
           </tbody>
         </table>
       </div>

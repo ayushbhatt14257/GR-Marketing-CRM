@@ -101,4 +101,16 @@ const listCustomers = asyncHandler(async (req, res) => {
   res.json({ items, total, page, pages: Math.ceil(total / limit) });
 });
 
-module.exports = { searchCustomers, resolveCustomer, listCustomers };
+// DELETE /api/customers/:id  (admin only) - soft delete
+const deleteCustomer = asyncHandler(async (req, res) => {
+  const customer = await Customer.findById(req.params.id);
+  if (!customer) {
+    res.status(404);
+    throw new Error('Customer not found');
+  }
+  customer.isDeleted = true;
+  await customer.save();
+  res.json({ message: 'Customer deleted' });
+});
+
+module.exports = { searchCustomers, resolveCustomer, listCustomers, deleteCustomer };

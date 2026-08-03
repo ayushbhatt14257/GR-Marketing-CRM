@@ -1,22 +1,30 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { UploadCloud, Check, Plus, X } from 'lucide-react';
+import { UploadCloud, Check, Plus, X, Loader2, CheckCircle2 } from 'lucide-react';
 import { stockUploadApi, productFamilyApi } from '../../api/endpoints';
 
 export default function StockUploadPage() {
   const [category, setCategory] = useState('fonfox');
   const [families, setFamilies] = useState([]);
+  const [familiesLoading, setFamiliesLoading] = useState(true);
   const [familyId, setFamilyId] = useState('');
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
   const [mode, setMode] = useState('add'); // 'add' = top up, 'set' = overwrite to exact count
-  const [loading, setLoading] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [committing, setCommitting] = useState(false);
+  const [lastResult, setLastResult] = useState(null);
 
   useEffect(() => {
-    productFamilyApi.list({ category }).then(({ data }) => setFamilies(data));
+    setFamiliesLoading(true);
+    productFamilyApi.list({ category }).then(({ data }) => {
+      setFamilies(data);
+      setFamiliesLoading(false);
+    });
     setFamilyId('');
     setPreview(null);
+    setLastResult(null);
   }, [category]);
 
   const doPreview = async () => {
@@ -25,12 +33,13 @@ export default function StockUploadPage() {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('familyId', familyId);
-    setLoading(true);
+    setPreviewLoading(true);
+    setLastResult(null);
     try {
       const { data } = await stockUploadApi.preview(formData);
       setPreview(data);
     } catch (err) { toast.error(err.response?.data?.message || 'Failed to parse file'); }
-    finally { setLoading(false); }
+    finally { setPreviewLoading(false); }
   };
 
   const removeUpdateRow = (productId) => {
@@ -42,6 +51,7 @@ export default function StockUploadPage() {
   };
 
   const doCommit = async () => {
+    setCommitting(true);
     try {
       const { data } = await stockUploadApi.commit({
         familyId,
@@ -50,8 +60,10 @@ export default function StockUploadPage() {
         toCreate: preview.toCreate.map((m) => ({ modelName: m.modelName, quantity: m.quantity })),
       });
       toast.success(`${data.updated} models updated, ${data.created} new models created`);
+      setLastResult({ ...data, familyName: preview.familyName });
       setPreview(null); setFile(null);
     } catch (err) { toast.error(err.response?.data?.message || 'Failed to commit'); }
+    finally { setCommitting(false); }
   };
 
   return (
@@ -73,21 +85,41 @@ export default function StockUploadPage() {
 
         <div>
           <label className="text-sm font-semibold mb-1.5 block">Product family</label>
-          <select value={familyId} onChange={(e) => { setFamilyId(e.target.value); setPreview(null); }} className="input-field">
-            <option value="">Select a family...</option>
-            {families.map((f) => <option key={f._id} value={f._id}>{f.name}</option>)}
-          </select>
-          {families.length === 0 && <p className="text-xs text-gray-400 mt-1">No families in this category yet — add one on the Products page first.</p>}
+          {familiesLoading ? (
+            <div className="flex items-center gap-2 text-sm text-gray-400 py-2.5">
+              <Loader2 size={15} className="animate-spin" /> Loading families...
+            </div>
+          ) : (
+            <>
+              <select value={familyId} onChange={(e) => { setFamilyId(e.target.value); setPreview(null); }} className="input-field">
+                <option value="">Select a family...</option>
+                {families.map((f) => <option key={f._id} value={f._id}>{f.name}</option>)}
+              </select>
+              {families.length === 0 && <p className="text-xs text-gray-400 mt-1">No families in this category yet — add one on the Products page first.</p>}
+            </>
+          )}
         </div>
 
         <div>
           <label className="text-sm font-semibold mb-1.5 block">Excel file</label>
           <div className="flex items-center gap-2">
             <input type="file" accept=".xlsx,.xls" onChange={(e) => { setFile(e.target.files[0]); setPreview(null); }} className="text-sm flex-1" />
-            <button onClick={doPreview} disabled={loading} className="btn-secondary text-sm py-2 px-3 shrink-0"><UploadCloud size={14} /> Preview</button>
+            <button onClick={doPreview} disabled={previewLoading} className="btn-secondary text-sm py-2 px-3 shrink-0">
+              {previewLoading ? <Loader2 size={14} className="animate-spin" /> : <UploadCloud size={14} />}
+              {previewLoading ? 'Parsing...' : 'Preview'}
+            </button>
           </div>
         </div>
       </div>
+
+      {lastResult && (
+        <div className="card p-4 flex items-center gap-3 bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/30">
+          <CheckCircle2 size={20} className="text-emerald-500 shrink-0" />
+          <p className="text-sm text-emerald-700 dark:text-emerald-300">
+            <span className="font-semibold">Success!</span> {lastResult.updated} model{lastResult.updated === 1 ? '' : 's'} updated, {lastResult.created} new model{lastResult.created === 1 ? '' : 's'} created for <span className="font-semibold">{lastResult.familyName}</span>.
+          </p>
+        </div>
+      )}
 
       {preview && (
         <div className="card p-5 space-y-4">
@@ -149,8 +181,13 @@ export default function StockUploadPage() {
             </div>
           </div>
 
-          <button onClick={doCommit} disabled={preview.toUpdate.length === 0 && preview.toCreate.length === 0} className="btn-primary w-full">
-            Confirm & Update Stock for {preview.familyName}
+          <button
+            onClick={doCommit}
+            disabled={committing || (preview.toUpdate.length === 0 && preview.toCreate.length === 0)}
+            className="btn-primary w-full"
+          >
+            {committing ? <Loader2 size={16} className="animate-spin" /> : null}
+            {committing ? 'Updating stock...' : `Confirm & Update Stock for ${preview.familyName}`}
           </button>
         </div>
       )}

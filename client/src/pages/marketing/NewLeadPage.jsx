@@ -42,7 +42,7 @@ export default function NewLeadPage() {
       await leadApi.create({
         customerId: customer._id,
         category,
-        productIds: products.map((p) => p.productId),
+        familyIds: products.map((p) => p.familyId),
         talkRegarding,
         nextFollowUpDate: needsDate ? nextFollowUpDate : undefined,
         remark: remark.trim(),
