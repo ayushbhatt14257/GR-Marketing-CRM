@@ -1,7 +1,9 @@
 import { useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { useAuthStore } from './store/authStore';
 import { useThemeStore } from './store/themeStore';
+import { authApi } from './api/endpoints';
 import { RequireAuth, RequireRole } from './components/RouteGuards';
 import AppLayout from './components/AppLayout';
 
@@ -40,7 +42,29 @@ function RoleDashboard() {
 
 export default function App() {
   const init = useThemeStore((s) => s.init);
+  const token = useAuthStore((s) => s.token);
+  const updateUser = useAuthStore((s) => s.updateUser);
+
   useEffect(() => { init(); }, []);
+
+  // Daily check-in: fires once on app load (and again if the tab is left open
+  // across midnight and refreshed) so a user who never explicitly logs out —
+  // just reopens the app on a new day — still gets their +2 points and streak
+  // update. Safe to call repeatedly; the backend only awards once per IST day.
+  useEffect(() => {
+    if (!token) return;
+    authApi.me().then(({ data }) => {
+      updateUser({
+        totalPoints: data.user.totalPoints,
+        currentStreak: data.user.currentStreak,
+      });
+      if (data.loginResult?.streakMilestone) {
+        toast.success(`🔥 ${data.loginResult.streakMilestone}-day streak! Keep it up!`, { duration: 5000 });
+      } else if (!data.loginResult?.alreadyAwardedToday && data.loginResult) {
+        toast.success("Welcome back! +2 points for today's login");
+      }
+    }).catch(() => {});
+  }, [token]);
 
   return (
     <Routes>

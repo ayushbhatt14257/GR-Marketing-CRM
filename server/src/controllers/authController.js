@@ -30,8 +30,20 @@ const login = asyncHandler(async (req, res) => {
   });
 });
 
+// GET /api/auth/me
+// Also runs the daily check-in (idempotent — handleDailyLogin only awards
+// once per IST day regardless of how many times this is called). This means
+// a user who never explicitly logs out — just keeps their session token and
+// opens the app on a new day — still gets their +2 points and streak update,
+// instead of only being credited on an actual login form submission.
 const me = asyncHandler(async (req, res) => {
-  res.json({ user: req.user });
+  const loginResult = await handleDailyLogin(req.user._id);
+  const freshUser = await User.findById(req.user._id).select('-passwordHash');
+
+  res.json({
+    user: freshUser,
+    loginResult,
+  });
 });
 
 const changePassword = asyncHandler(async (req, res) => {
