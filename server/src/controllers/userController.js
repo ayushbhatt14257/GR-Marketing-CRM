@@ -13,7 +13,7 @@ const listUsers = asyncHandler(async (req, res) => {
 
 // POST /api/users  (admin only)
 const createUser = asyncHandler(async (req, res) => {
-  const { name, email, password, role } = req.body;
+  const { name, email, password, role, productAccess } = req.body;
   if (!name || !email || !password || !role) {
     res.status(400);
     throw new Error('Name, email, password and role are required');
@@ -21,6 +21,10 @@ const createUser = asyncHandler(async (req, res) => {
   if (!User.ROLES.includes(role)) {
     res.status(400);
     throw new Error('Invalid role');
+  }
+  if (productAccess && !['fonfox', 'supreme', 'both'].includes(productAccess)) {
+    res.status(400);
+    throw new Error('Invalid product access value');
   }
 
   const exists = await User.findOne({ email: email.toLowerCase().trim() });
@@ -35,6 +39,7 @@ const createUser = asyncHandler(async (req, res) => {
     email: email.toLowerCase().trim(),
     passwordHash,
     role,
+    productAccess: productAccess || 'both',
     avatarColor: AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)],
   });
 
@@ -51,11 +56,12 @@ const updateUser = asyncHandler(async (req, res) => {
     throw new Error('User not found');
   }
 
-  const { name, role, isActive, password } = req.body;
+  const { name, role, isActive, password, productAccess } = req.body;
   if (name) user.name = name.trim();
   if (role) user.role = role;
   if (isActive !== undefined) user.isActive = isActive;
   if (password) user.passwordHash = await User.hashPassword(password);
+  if (productAccess && ['fonfox', 'supreme', 'both'].includes(productAccess)) user.productAccess = productAccess;
 
   await user.save();
   const obj = user.toObject();

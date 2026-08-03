@@ -1,14 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { UploadCloud, Check, Plus, X, Loader2, CheckCircle2 } from 'lucide-react';
-import { stockUploadApi, productFamilyApi } from '../../api/endpoints';
+import { stockUploadApi } from '../../api/endpoints';
 
 export default function StockUploadPage() {
   const [category, setCategory] = useState('fonfox');
-  const [families, setFamilies] = useState([]);
-  const [familiesLoading, setFamiliesLoading] = useState(true);
-  const [familyId, setFamilyId] = useState('');
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
   const [mode, setMode] = useState('add'); // 'add' = top up, 'set' = overwrite to exact count
@@ -16,23 +13,11 @@ export default function StockUploadPage() {
   const [committing, setCommitting] = useState(false);
   const [lastResult, setLastResult] = useState(null);
 
-  useEffect(() => {
-    setFamiliesLoading(true);
-    productFamilyApi.list({ category }).then(({ data }) => {
-      setFamilies(data);
-      setFamiliesLoading(false);
-    });
-    setFamilyId('');
-    setPreview(null);
-    setLastResult(null);
-  }, [category]);
-
   const doPreview = async () => {
-    if (!familyId) return toast.error('Select a product family first');
     if (!file) return toast.error('Choose an Excel file first');
     const formData = new FormData();
     formData.append('file', file);
-    formData.append('familyId', familyId);
+    formData.append('category', category);
     setPreviewLoading(true);
     setLastResult(null);
     try {
@@ -54,13 +39,13 @@ export default function StockUploadPage() {
     setCommitting(true);
     try {
       const { data } = await stockUploadApi.commit({
-        familyId,
+        category,
         mode,
         toUpdate: preview.toUpdate.map((m) => ({ productId: m.productId, quantity: m.quantity })),
-        toCreate: preview.toCreate.map((m) => ({ modelName: m.modelName, quantity: m.quantity })),
+        toCreate: preview.toCreate.map((m) => ({ name: m.name, quantity: m.quantity })),
       });
-      toast.success(`${data.updated} models updated, ${data.created} new models created`);
-      setLastResult({ ...data, familyName: preview.familyName });
+      toast.success(`${data.updated} products updated, ${data.created} new products created`);
+      setLastResult(data);
       setPreview(null); setFile(null);
     } catch (err) { toast.error(err.response?.data?.message || 'Failed to commit'); }
     finally { setCommitting(false); }
@@ -71,33 +56,15 @@ export default function StockUploadPage() {
       <div>
         <h1 className="text-xl font-extrabold mb-1">Stock Upload</h1>
         <p className="text-sm text-gray-500">
-          Select the product family this sheet belongs to, then upload an Excel file with two columns:
-          <span className="font-semibold"> Item name</span> and <span className="font-semibold">Quantity</span>.
-          Existing models get stock added; new model names are created automatically.
+          Upload an Excel file with two columns: <span className="font-semibold">Product name</span> and{' '}
+          <span className="font-semibold">Quantity</span>. Existing products get stock updated; new names are created automatically.
         </p>
       </div>
 
       <div className="card p-5 space-y-4">
         <div className="flex gap-2">
-          <button onClick={() => setCategory('fonfox')} className={`chip ${category === 'fonfox' ? 'chip-active' : 'chip-inactive'}`}>FonFox</button>
-          <button onClick={() => setCategory('supreme')} className={`chip ${category === 'supreme' ? 'chip-active' : 'chip-inactive'}`}>Supreme</button>
-        </div>
-
-        <div>
-          <label className="text-sm font-semibold mb-1.5 block">Product family</label>
-          {familiesLoading ? (
-            <div className="flex items-center gap-2 text-sm text-gray-400 py-2.5">
-              <Loader2 size={15} className="animate-spin" /> Loading families...
-            </div>
-          ) : (
-            <>
-              <select value={familyId} onChange={(e) => { setFamilyId(e.target.value); setPreview(null); }} className="input-field">
-                <option value="">Select a family...</option>
-                {families.map((f) => <option key={f._id} value={f._id}>{f.name}</option>)}
-              </select>
-              {families.length === 0 && <p className="text-xs text-gray-400 mt-1">No families in this category yet — add one on the Products page first.</p>}
-            </>
-          )}
+          <button onClick={() => { setCategory('fonfox'); setPreview(null); }} className={`chip ${category === 'fonfox' ? 'chip-active' : 'chip-inactive'}`}>FonFox</button>
+          <button onClick={() => { setCategory('supreme'); setPreview(null); }} className={`chip ${category === 'supreme' ? 'chip-active' : 'chip-inactive'}`}>Supreme</button>
         </div>
 
         <div>
@@ -116,7 +83,7 @@ export default function StockUploadPage() {
         <div className="card p-4 flex items-center gap-3 bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/30">
           <CheckCircle2 size={20} className="text-emerald-500 shrink-0" />
           <p className="text-sm text-emerald-700 dark:text-emerald-300">
-            <span className="font-semibold">Success!</span> {lastResult.updated} model{lastResult.updated === 1 ? '' : 's'} updated, {lastResult.created} new model{lastResult.created === 1 ? '' : 's'} created for <span className="font-semibold">{lastResult.familyName}</span>.
+            <span className="font-semibold">Success!</span> {lastResult.updated} product{lastResult.updated === 1 ? '' : 's'} updated, {lastResult.created} new product{lastResult.created === 1 ? '' : 's'} created.
           </p>
         </div>
       )}
@@ -124,7 +91,7 @@ export default function StockUploadPage() {
       {preview && (
         <div className="card p-5 space-y-4">
           <div>
-            <p className="text-sm font-semibold mb-2">How should existing model stock be updated?</p>
+            <p className="text-sm font-semibold mb-2">How should existing product stock be updated?</p>
             <div className="flex gap-2">
               <button
                 onClick={() => setMode('add')}
@@ -149,12 +116,12 @@ export default function StockUploadPage() {
 
           <div>
             <p className="text-xs font-semibold text-emerald-600 mb-1.5 flex items-center gap-1">
-              <Check size={13} /> Will {mode === 'set' ? 'set exact stock for' : 'top up'} existing models ({preview.toUpdate.length})
+              <Check size={13} /> Will {mode === 'set' ? 'set exact stock for' : 'top up'} existing products ({preview.toUpdate.length})
             </p>
             <div className="max-h-48 overflow-y-auto space-y-1">
               {preview.toUpdate.map((m) => (
                 <div key={m.productId} className="flex justify-between items-center text-xs bg-emerald-50 dark:bg-emerald-500/10 px-2.5 py-1.5 rounded-lg">
-                  <span>{m.modelName}</span>
+                  <span>{m.name}</span>
                   <span className="flex items-center gap-2">
                     {mode === 'set' ? `${m.currentStock} → ${m.quantity}` : `${m.currentStock} → ${m.currentStock + m.quantity}`}
                     <button onClick={() => removeUpdateRow(m.productId)} className="text-gray-400 hover:text-red-500"><X size={13} /></button>
@@ -166,11 +133,11 @@ export default function StockUploadPage() {
           </div>
 
           <div>
-            <p className="text-xs font-semibold text-brand-600 mb-1.5 flex items-center gap-1"><Plus size={13} /> Will create as new models ({preview.toCreate.length})</p>
+            <p className="text-xs font-semibold text-brand-600 mb-1.5 flex items-center gap-1"><Plus size={13} /> Will create as new products ({preview.toCreate.length})</p>
             <div className="max-h-48 overflow-y-auto space-y-1">
               {preview.toCreate.map((m, i) => (
                 <div key={i} className="flex justify-between items-center text-xs bg-brand-50 dark:bg-brand-500/10 px-2.5 py-1.5 rounded-lg">
-                  <span>{m.modelName}</span>
+                  <span>{m.name}</span>
                   <span className="flex items-center gap-2">
                     +{m.quantity}
                     <button onClick={() => removeCreateRow(i)} className="text-gray-400 hover:text-red-500"><X size={13} /></button>
@@ -187,7 +154,7 @@ export default function StockUploadPage() {
             className="btn-primary w-full"
           >
             {committing ? <Loader2 size={16} className="animate-spin" /> : null}
-            {committing ? 'Updating stock...' : `Confirm & Update Stock for ${preview.familyName}`}
+            {committing ? 'Updating stock...' : 'Confirm & Update Stock'}
           </button>
         </div>
       )}

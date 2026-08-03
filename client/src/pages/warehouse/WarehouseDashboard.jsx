@@ -24,7 +24,7 @@ export default function WarehouseDashboard() {
         <div className="space-y-2">
           {data.lowStock.map((p) => (
             <div key={p._id} className="flex items-center justify-between text-sm bg-amber-50 dark:bg-amber-500/10 px-3 py-2 rounded-lg">
-              <span>{p.familyName} — {p.modelName} <span className="text-xs text-gray-400 capitalize">({p.category})</span></span>
+              <span>{p.name} <span className="text-xs text-gray-400 capitalize">({p.category})</span></span>
               <span className="text-amber-600 font-semibold">{p.stock.available} left</span>
             </div>
           ))}
@@ -38,7 +38,7 @@ export default function WarehouseDashboard() {
           <div className="space-y-2">
             {data.mismatch.map((p) => (
               <div key={p._id} className="flex items-center justify-between text-sm bg-red-50 dark:bg-red-500/10 px-3 py-2 rounded-lg">
-                <span>{p.familyName} — {p.modelName}</span>
+                <span>{p.name}</span>
                 <span className="text-red-600 font-semibold">{p.stock.available} (short by {Math.abs(p.stock.available)})</span>
               </div>
             ))}

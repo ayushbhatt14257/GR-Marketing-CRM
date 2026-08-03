@@ -5,7 +5,6 @@ const connectDB = require('../config/db');
 const User = require('../models/User');
 const Customer = require('../models/Customer');
 const Product = require('../models/Product');
-const ProductFamily = require('../models/ProductFamily');
 const Lead = require('../models/Lead');
 const Order = require('../models/Order');
 const StockLedger = require('../models/StockLedger');
@@ -24,7 +23,7 @@ const Task = require('../models/Task');
   await connectDB();
 
   const models = [
-    User, Customer, Product, ProductFamily, Lead, Order,
+    User, Customer, Product, Lead, Order,
     StockLedger, PointsLedger, ActivityLog, Notification, Announcement, Task,
   ];
 

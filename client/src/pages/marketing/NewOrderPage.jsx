@@ -13,6 +13,7 @@ export default function NewOrderPage() {
   const [category, setCategory] = useState('fonfox');
   const [products, setProducts] = useState([]);
   const [deliveryDate, setDeliveryDate] = useState('');
+  const [remark, setRemark] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const isDispatchOrAdmin = ['dispatch', 'admin'].includes(user?.role);
@@ -31,9 +32,10 @@ export default function NewOrderPage() {
         category,
         items: products.map((p) => ({ productId: p.productId, quantity: p.quantity })),
         deliveryDate,
+        remark: remark.trim() || undefined,
       });
       toast.success('Order created!');
-      setCustomer(null); setProducts([]); setDeliveryDate('');
+      setCustomer(null); setProducts([]); setDeliveryDate(''); setRemark('');
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to create order');
     } finally {
@@ -69,6 +71,14 @@ export default function NewOrderPage() {
           <input
             type="date" required value={deliveryDate} onChange={(e) => setDeliveryDate(e.target.value)}
             className="input-field" min={new Date().toISOString().slice(0, 10)}
+          />
+        </div>
+
+        <div>
+          <label className="text-sm font-semibold mb-1.5 block">Remark <span className="text-gray-400 font-normal text-xs">(optional)</span></label>
+          <textarea
+            value={remark} onChange={(e) => setRemark(e.target.value)}
+            rows={2} className="input-field resize-none" placeholder="Any notes about this order..."
           />
         </div>
 

@@ -1,19 +1,14 @@
 const mongoose = require('mongoose');
 
-// A Product is one specific model/variant within a family — e.g. family
-// "B90 Magsafe Silicon" has variants "1+Nord 4 (5G)", "1+Nord 6 (5G)", etc.
-// familyName is denormalized onto every variant so order/lead history never
-// needs a second populate hop to show "Family — Model" in the UI.
 const productSchema = new mongoose.Schema(
   {
-    familyId: { type: mongoose.Schema.Types.ObjectId, ref: 'ProductFamily', required: true, index: true },
-    familyName: { type: String, required: true, trim: true },
-    modelName: { type: String, required: true, trim: true }, // e.g. "1+Nord 4 (5G)"
-    sku: { type: String, trim: true, uppercase: true }, // omitted entirely when not provided — NEVER default to null (breaks unique index, see below)
+    name: { type: String, required: true, trim: true }, // e.g. "B90"
+    sku: { type: String, trim: true, uppercase: true }, // never default to null — see index below
     category: { type: String, enum: ['fonfox', 'supreme'], required: true },
     isActive: { type: Boolean, default: true },
     // Physical stock on hand. "Available to promise" is ALWAYS computed live
-    // from Order documents (see stockService.js) — never cached here.
+    // from Order documents (see stockService.js) — never cached here, so it
+    // can never drift out of sync no matter how orders/cancellations flow.
     totalStock: { type: Number, default: 0, min: 0 },
     lowStockThreshold: { type: Number, default: 20 },
     lastUpdatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
@@ -22,9 +17,11 @@ const productSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-productSchema.index({ familyId: 1, modelName: 1 }, { unique: true, partialFilterExpression: { isDeleted: false } });
+productSchema.index({ name: 1, category: 1 }, { unique: true, partialFilterExpression: { isDeleted: false } });
+// partialFilterExpression (not sparse) — sparse + an explicit default null both
+// cause false "duplicate key" errors once 2+ products lack a sku. Never
+// change this back to sparse:true without also removing any default on sku.
 productSchema.index({ sku: 1 }, { unique: true, partialFilterExpression: { sku: { $type: 'string' } } });
 productSchema.index({ category: 1, isActive: 1 });
-productSchema.index({ familyId: 1, isActive: 1 });
 
 module.exports = mongoose.model('Product', productSchema);

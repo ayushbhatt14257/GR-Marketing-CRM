@@ -33,13 +33,6 @@ export const orderApi = {
   reassign: (id, ownerId) => client.patch(`/orders/${id}/reassign`, { ownerId }),
 };
 
-export const productFamilyApi = {
-  list: (params) => client.get('/product-families', { params }),
-  create: (data) => client.post('/product-families', data),
-  update: (id, data) => client.patch(`/product-families/${id}`, data),
-  remove: (id) => client.delete(`/product-families/${id}`),
-};
-
 export const productApi = {
   list: (params) => client.get('/products', { params }),
   create: (data) => client.post('/products', data),

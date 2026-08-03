@@ -1,42 +1,32 @@
 const asyncHandler = require('../utils/asyncHandler');
 const Product = require('../models/Product');
-const ProductFamily = require('../models/ProductFamily');
 const StockLedger = require('../models/StockLedger');
 const { getStockSummary } = require('../services/stockService');
 
-// GET /api/products?familyId=&category=&active=true
+// GET /api/products?category=fonfox&active=true
 const listProducts = asyncHandler(async (req, res) => {
   const filter = { isDeleted: false };
-  if (req.query.familyId) filter.familyId = req.query.familyId;
   if (req.query.category) filter.category = req.query.category;
   if (req.query.active === 'true') filter.isActive = true;
 
-  const products = await Product.find(filter).sort({ modelName: 1 }).lean();
+  const products = await Product.find(filter).populate('lastUpdatedBy', 'name').sort({ name: 1 }).lean();
   const summary = await getStockSummary(products.map((p) => p._id));
 
   res.json(products.map((p) => ({ ...p, stock: summary[p._id] })));
 });
 
-// POST /api/products  (warehouse/admin) - add a single model under a family
+// POST /api/products  (warehouse/admin)
 const createProduct = asyncHandler(async (req, res) => {
-  const { familyId, modelName, sku, totalStock, lowStockThreshold } = req.body;
-  if (!familyId || !modelName) {
+  const { name, sku, category, totalStock, lowStockThreshold } = req.body;
+  if (!name || !category) {
     res.status(400);
-    throw new Error('Family and model name are required');
-  }
-
-  const family = await ProductFamily.findById(familyId);
-  if (!family) {
-    res.status(404);
-    throw new Error('Product family not found');
+    throw new Error('Name and category are required');
   }
 
   const product = await Product.create({
-    familyId,
-    familyName: family.name,
-    modelName: modelName.trim(),
+    name: name.trim(),
     sku: sku ? sku.trim().toUpperCase() : undefined,
-    category: family.category,
+    category,
     totalStock: totalStock || 0,
     lowStockThreshold: lowStockThreshold || 20,
     lastUpdatedBy: req.user._id,
@@ -49,7 +39,7 @@ const createProduct = asyncHandler(async (req, res) => {
       addedBy: req.user._id,
       addedByName: req.user.name,
       source: 'manual',
-      note: 'Initial stock on model creation',
+      note: 'Initial stock on product creation',
     });
   }
 
@@ -57,25 +47,40 @@ const createProduct = asyncHandler(async (req, res) => {
 });
 
 // PATCH /api/products/:id
+// Supports directly setting totalStock to an exact value (manual quantity
+// entry) — logs the delta to StockLedger for audit trail either way.
 const updateProduct = asyncHandler(async (req, res) => {
-  const { modelName, sku, isActive, lowStockThreshold } = req.body;
+  const { name, sku, isActive, lowStockThreshold, totalStock } = req.body;
   const product = await Product.findById(req.params.id);
   if (!product) {
     res.status(404);
     throw new Error('Product not found');
   }
 
-  if (modelName) product.modelName = modelName.trim();
+  if (name) product.name = name.trim();
   if (sku !== undefined) product.sku = sku ? sku.trim().toUpperCase() : undefined;
   if (isActive !== undefined) product.isActive = isActive;
   if (lowStockThreshold !== undefined) product.lowStockThreshold = lowStockThreshold;
-  product.lastUpdatedBy = req.user._id;
 
+  if (totalStock !== undefined && Number(totalStock) !== product.totalStock) {
+    const delta = Number(totalStock) - product.totalStock;
+    product.totalStock = Number(totalStock);
+    await StockLedger.create({
+      productId: product._id,
+      quantity: delta,
+      addedBy: req.user._id,
+      addedByName: req.user.name,
+      source: 'manual',
+      note: `Stock manually set to ${totalStock}`,
+    });
+  }
+
+  product.lastUpdatedBy = req.user._id;
   await product.save();
   res.json(product);
 });
 
-// POST /api/products/:id/stock-in  { quantity, note }
+// POST /api/products/:id/stock-in  { quantity, note }  — adds to existing stock
 const stockIn = asyncHandler(async (req, res) => {
   const { quantity, note } = req.body;
   if (!quantity || quantity <= 0) {
@@ -122,7 +127,7 @@ const deleteProduct = asyncHandler(async (req, res) => {
   product.isActive = false;
   product.lastUpdatedBy = req.user._id;
   await product.save();
-  res.json({ message: 'Model deleted' });
+  res.json({ message: 'Product deleted' });
 });
 
 module.exports = { listProducts, createProduct, updateProduct, stockIn, getLedger, deleteProduct };

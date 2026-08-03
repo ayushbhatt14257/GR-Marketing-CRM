@@ -58,6 +58,8 @@ export default function App() {
       updateUser({
         totalPoints: data.user.totalPoints,
         currentStreak: data.user.currentStreak,
+        productAccess: data.user.productAccess,
+        role: data.user.role,
       });
       if (data.loginResult?.streakMilestone) {
         toast.success(`🔥 ${data.loginResult.streakMilestone}-day streak! Keep it up!`, { duration: 5000 });

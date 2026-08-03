@@ -33,6 +33,7 @@ const orderSchema = new mongoose.Schema(
     items: [orderItemSchema],
 
     deliveryDate: { type: Date, required: true }, // informational only, does not affect queue order
+    remark: { type: String, default: '', trim: true }, // optional, unlike Lead's remark
     priority: { type: String, enum: ['normal', 'urgent'], default: 'normal' },
     priorityChangedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
 

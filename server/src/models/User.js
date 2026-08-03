@@ -10,6 +10,11 @@ const userSchema = new mongoose.Schema(
     passwordHash: { type: String, required: true },
     role: { type: String, enum: ROLES, required: true, default: 'marketing' },
     isActive: { type: Boolean, default: true },
+    // Which product category a marketing user sees on Lead/Order forms.
+    // 'both' shows the FonFox/Supreme toggle; 'fonfox'/'supreme' locks them
+    // to just that one category with no toggle shown. Only enforced for the
+    // marketing role — admin/dispatch/warehouse always see both regardless.
+    productAccess: { type: String, enum: ['fonfox', 'supreme', 'both'], default: 'both' },
     avatarColor: { type: String, default: '#6366f1' },
 
     // Points / gamification

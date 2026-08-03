@@ -19,7 +19,7 @@ function computeStatus(order) {
 
 // POST /api/orders
 const createOrder = asyncHandler(async (req, res) => {
-  const { customerId, ownerId, category, items, deliveryDate } = req.body;
+  const { customerId, ownerId, category, items, deliveryDate, remark } = req.body;
 
   if (!customerId || !category || !Array.isArray(items) || !items.length || !deliveryDate) {
     res.status(400);
@@ -40,6 +40,7 @@ const createOrder = asyncHandler(async (req, res) => {
     category,
     items: items.map((i) => ({ productId: i.productId, requestedQty: i.quantity })),
     deliveryDate,
+    remark: remark ? remark.trim() : '', // optional, unlike lead remark
     status: 'reserved',
   });
 
@@ -74,7 +75,7 @@ const listOrders = asyncHandler(async (req, res) => {
       .populate('customerId', 'name')
       .populate('ownerId', 'name')
       .populate('createdBy', 'name')
-      .populate('items.productId', 'modelName familyName category')
+      .populate('items.productId', 'name category')
       .sort({ priority: -1, createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(limit)
@@ -91,7 +92,7 @@ const getOrder = asyncHandler(async (req, res) => {
     .populate('customerId', 'name')
     .populate('ownerId', 'name')
     .populate('createdBy', 'name')
-    .populate('items.productId', 'modelName familyName category')
+    .populate('items.productId', 'name category')
     .lean();
   if (!order) {
     res.status(404);

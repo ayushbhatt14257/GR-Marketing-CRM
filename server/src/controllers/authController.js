@@ -22,6 +22,7 @@ const login = asyncHandler(async (req, res) => {
       name: user.name,
       email: user.email,
       role: user.role,
+      productAccess: user.productAccess,
       avatarColor: user.avatarColor,
       totalPoints: user.totalPoints,
       currentStreak: loginResult?.currentStreak ?? user.currentStreak,

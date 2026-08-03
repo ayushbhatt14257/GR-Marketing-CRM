@@ -6,10 +6,15 @@ import { UserPlus } from 'lucide-react';
 import { userApi } from '../../api/endpoints';
 
 const ROLES = ['marketing', 'warehouse', 'dispatch', 'admin'];
+const ACCESS_OPTIONS = [
+  { value: 'both', label: 'Both' },
+  { value: 'fonfox', label: 'FonFox only' },
+  { value: 'supreme', label: 'Supreme only' },
+];
 
 export default function UsersPage() {
   const [users, setUsers] = useState([]);
-  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'marketing' });
+  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'marketing', productAccess: 'both' });
 
   const load = async () => { const { data } = await userApi.list(); setUsers(data); };
   useEffect(() => { load(); }, []);
@@ -19,7 +24,7 @@ export default function UsersPage() {
     try {
       await userApi.create(form);
       toast.success('User created');
-      setForm({ name: '', email: '', password: '', role: 'marketing' });
+      setForm({ name: '', email: '', password: '', role: 'marketing', productAccess: 'both' });
       load();
     } catch (err) { toast.error(err.response?.data?.message || 'Failed'); }
   };
@@ -27,6 +32,14 @@ export default function UsersPage() {
   const toggleActive = async (u) => {
     await userApi.update(u._id, { isActive: !u.isActive });
     load();
+  };
+
+  const updateAccess = async (u, productAccess) => {
+    try {
+      await userApi.update(u._id, { productAccess });
+      toast.success(`${u.name}'s product access updated`);
+      load();
+    } catch (err) { toast.error(err.response?.data?.message || 'Failed'); }
   };
 
   return (
@@ -52,13 +65,21 @@ export default function UsersPage() {
             {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
           </select>
         </div>
+        {form.role === 'marketing' && (
+          <div>
+            <label className="text-xs font-medium text-gray-500 mb-1 block">Product access</label>
+            <select value={form.productAccess} onChange={(e) => setForm({ ...form, productAccess: e.target.value })} className="input-field">
+              {ACCESS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </div>
+        )}
         <button type="submit" className="btn-primary py-2.5"><UserPlus size={16} /> Create</button>
       </form>
 
       <div className="card overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 dark:bg-ink-800 text-left text-xs text-gray-500">
-            <tr><th className="px-4 py-3">Name</th><th className="px-4 py-3">Email</th><th className="px-4 py-3">Role</th><th className="px-4 py-3">Points</th><th className="px-4 py-3">Status</th></tr>
+            <tr><th className="px-4 py-3">Name</th><th className="px-4 py-3">Email</th><th className="px-4 py-3">Role</th><th className="px-4 py-3">Product Access</th><th className="px-4 py-3">Points</th><th className="px-4 py-3">Status</th></tr>
           </thead>
           <tbody>
             {users.map((u) => (
@@ -68,6 +89,15 @@ export default function UsersPage() {
                 </td>
                 <td className="px-4 py-3 text-gray-500">{u.email}</td>
                 <td className="px-4 py-3 capitalize">{u.role}</td>
+                <td className="px-4 py-3">
+                  {u.role === 'marketing' ? (
+                    <select value={u.productAccess || 'both'} onChange={(e) => updateAccess(u, e.target.value)} className="input-field w-auto py-1 text-xs">
+                      {ACCESS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </select>
+                  ) : (
+                    <span className="text-gray-400 text-xs">—</span>
+                  )}
+                </td>
                 <td className="px-4 py-3">{u.totalPoints}</td>
                 <td className="px-4 py-3">
                   <button onClick={() => toggleActive(u)} className={`badge ${u.isActive ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10' : 'bg-gray-100 text-gray-500 dark:bg-ink-800'}`}>

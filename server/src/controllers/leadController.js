@@ -39,7 +39,7 @@ function buildLeadFilter(req) {
 
 // POST /api/leads
 const createLead = asyncHandler(async (req, res) => {
-  const { customerId, ownerId, category, familyIds, talkRegarding, nextFollowUpDate, remark } = req.body;
+  const { customerId, ownerId, category, productIds, talkRegarding, nextFollowUpDate, remark } = req.body;
 
   if (!customerId || !category || !talkRegarding || !remark || !remark.trim()) {
     res.status(400);
@@ -58,7 +58,7 @@ const createLead = asyncHandler(async (req, res) => {
     ownerId: effectiveOwnerId,
     createdBy: req.user._id,
     category,
-    familyIds: familyIds || [],
+    productIds: productIds || [],
     talkRegarding,
     nextFollowUpDate: Lead.REQUIRES_FOLLOW_UP_DATE.includes(talkRegarding) ? nextFollowUpDate : null,
     remark: remark.trim(),
@@ -79,7 +79,7 @@ const listLeads = asyncHandler(async (req, res) => {
     Lead.find(filter)
       .populate('customerId', 'name')
       .populate('ownerId', 'name')
-      .populate('familyIds', 'name category')
+      .populate('productIds', 'name category')
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(limit)

@@ -21,7 +21,7 @@ const marketingDashboard = asyncHandler(async (req, res) => {
       .populate('customerId', 'name').sort({ nextFollowUpDate: 1 }).limit(10).lean(),
     Lead.find({ ownerId, isFollowUpClosed: false, isDeleted: false, nextFollowUpDate: { $gt: now } })
       .populate('customerId', 'name').sort({ nextFollowUpDate: 1 }).limit(10).lean(),
-    Order.find({ ownerId, isDeleted: false }).populate('items.productId', 'modelName familyName').lean(),
+    Order.find({ ownerId, isDeleted: false }).populate('items.productId', 'name').lean(),
     Order.find({ ownerId, status: { $in: ['reserved', 'partially_dispatched'] }, isDeleted: false })
       .sort({ deliveryDate: 1 })
       .limit(5)
@@ -41,7 +41,7 @@ const marketingDashboard = asyncHandler(async (req, res) => {
   }));
   const topProductIds = Object.entries(productFreq).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([id]) => id);
   const stockSummary = await getStockSummary(topProductIds);
-  const products = await Product.find({ _id: { $in: topProductIds } }).select('modelName familyName category').lean();
+  const products = await Product.find({ _id: { $in: topProductIds } }).select('name category').lean();
   const frequentProductsStock = products.map((p) => ({ ...p, stock: stockSummary[p._id] }));
 
   res.json({
