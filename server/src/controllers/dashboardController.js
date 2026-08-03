@@ -76,15 +76,20 @@ const warehouseDashboard = asyncHandler(async (req, res) => {
 
 // GET /api/dashboard/dispatch
 const dispatchDashboard = asyncHandler(async (req, res) => {
+  const matchFilter = { status: { $in: Order.ACTIVE_STATUSES }, isDeleted: false };
+  if (req.user.role === 'dispatch' && req.user.productAccess !== 'both') {
+    matchFilter.category = req.user.productAccess;
+  }
+
   const [queue, byUser] = await Promise.all([
-    Order.find({ status: { $in: Order.ACTIVE_STATUSES }, isDeleted: false })
+    Order.find(matchFilter)
       .sort({ priority: -1, createdAt: 1 })
       .populate('customerId', 'name')
       .populate('ownerId', 'name')
       .limit(100)
       .lean(),
     Order.aggregate([
-      { $match: { isDeleted: false, status: { $in: Order.ACTIVE_STATUSES } } },
+      { $match: matchFilter },
       { $group: { _id: '$ownerId', count: { $sum: 1 } } },
     ]),
   ]);

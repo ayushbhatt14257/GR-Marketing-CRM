@@ -17,6 +17,16 @@ function computeStatus(order) {
   return 'partially_dispatched';
 }
 
+// A dispatch user locked to a single category (productAccess !== 'both')
+// cannot view or act on orders outside that category, even by direct ID.
+function assertCategoryAccess(user, order) {
+  if (user.role === 'dispatch' && user.productAccess !== 'both' && order.category !== user.productAccess) {
+    const err = new Error('You do not have access to this category of orders');
+    err.statusCode = 403;
+    throw err;
+  }
+}
+
 // POST /api/orders
 const createOrder = asyncHandler(async (req, res) => {
   const { customerId, ownerId, category, items, deliveryDate, remark } = req.body;
@@ -68,7 +78,15 @@ const listOrders = asyncHandler(async (req, res) => {
   else if (req.query.ownerId) filter.ownerId = req.query.ownerId;
 
   if (req.query.status) filter.status = req.query.status;
-  if (req.query.category) filter.category = req.query.category;
+
+  // A dispatch user locked to a single category (not 'both') only ever sees
+  // that category's orders — cannot be overridden by a query param, since
+  // this is an access restriction, not a display preference.
+  if (req.user.role === 'dispatch' && req.user.productAccess !== 'both') {
+    filter.category = req.user.productAccess;
+  } else if (req.query.category) {
+    filter.category = req.query.category;
+  }
 
   const [items, total] = await Promise.all([
     Order.find(filter)
@@ -98,6 +116,7 @@ const getOrder = asyncHandler(async (req, res) => {
     res.status(404);
     throw new Error('Order not found');
   }
+  assertCategoryAccess(req.user, order);
 
   const positions = {};
   for (const item of order.items) {
@@ -114,6 +133,7 @@ const updateOrder = asyncHandler(async (req, res) => {
     res.status(404);
     throw new Error('Order not found');
   }
+  assertCategoryAccess(req.user, order);
   if (order.status !== 'reserved' && order.status !== 'pending') {
     res.status(400);
     throw new Error('Order can no longer be edited once dispatch has begun');
@@ -145,6 +165,7 @@ const setPriority = asyncHandler(async (req, res) => {
     res.status(404);
     throw new Error('Order not found');
   }
+  assertCategoryAccess(req.user, order);
 
   order.priority = priority;
   order.priorityChangedBy = req.user._id;
@@ -160,6 +181,7 @@ const dispatchOrder = asyncHandler(async (req, res) => {
     res.status(404);
     throw new Error('Order not found');
   }
+  assertCategoryAccess(req.user, order);
   if (['cancelled', 'delivered'].includes(order.status)) {
     res.status(400);
     throw new Error(`Cannot dispatch an order that is ${order.status}`);
@@ -226,6 +248,7 @@ const markDelivered = asyncHandler(async (req, res) => {
     res.status(404);
     throw new Error('Order not found');
   }
+  assertCategoryAccess(req.user, order);
   const isOwner = String(order.ownerId) === String(req.user._id);
   if (!isOwner && !['admin', 'dispatch'].includes(req.user.role)) {
     res.status(403);
@@ -246,6 +269,7 @@ const cancelOrder = asyncHandler(async (req, res) => {
     res.status(404);
     throw new Error('Order not found');
   }
+  assertCategoryAccess(req.user, order);
   const isOwner = String(order.ownerId) === String(req.user._id);
   if (!isOwner && !['admin', 'dispatch'].includes(req.user.role)) {
     res.status(403);
@@ -280,6 +304,7 @@ const reassignOrder = asyncHandler(async (req, res) => {
     res.status(404);
     throw new Error('Order not found');
   }
+  assertCategoryAccess(req.user, order);
 
   const previousOwner = order.ownerId;
   order.ownerId = ownerId;

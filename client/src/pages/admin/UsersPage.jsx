@@ -65,7 +65,7 @@ export default function UsersPage() {
             {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
           </select>
         </div>
-        {form.role === 'marketing' && (
+        {['marketing', 'dispatch'].includes(form.role) && (
           <div>
             <label className="text-xs font-medium text-gray-500 mb-1 block">Product access</label>
             <select value={form.productAccess} onChange={(e) => setForm({ ...form, productAccess: e.target.value })} className="input-field">
@@ -90,7 +90,7 @@ export default function UsersPage() {
                 <td className="px-4 py-3 text-gray-500">{u.email}</td>
                 <td className="px-4 py-3 capitalize">{u.role}</td>
                 <td className="px-4 py-3">
-                  {u.role === 'marketing' ? (
+                  {['marketing', 'dispatch'].includes(u.role) ? (
                     <select value={u.productAccess || 'both'} onChange={(e) => updateAccess(u, e.target.value)} className="input-field w-auto py-1 text-xs">
                       {ACCESS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                     </select>

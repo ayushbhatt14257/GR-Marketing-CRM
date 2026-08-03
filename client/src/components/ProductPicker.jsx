@@ -12,7 +12,7 @@ export default function ProductPicker({ category, onCategoryChange, selected, on
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const restrictedCategory = user?.role === 'marketing' && user?.productAccess !== 'both' ? user.productAccess : null;
+  const restrictedCategory = ['marketing', 'dispatch'].includes(user?.role) && user?.productAccess !== 'both' ? user.productAccess : null;
   const showToggle = !restrictedCategory;
 
   // If the user is locked to one category, force it and never show the other.

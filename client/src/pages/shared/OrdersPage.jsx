@@ -159,7 +159,10 @@ export default function OrdersPage() {
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-      <h1 className="text-xl font-extrabold mb-4">{user?.role === 'marketing' ? 'My Orders' : 'Orders'}</h1>
+      <h1 className="text-xl font-extrabold mb-1">{user?.role === 'marketing' ? 'My Orders' : 'Orders'}</h1>
+      {user?.role === 'dispatch' && user?.productAccess !== 'both' && (
+        <p className="text-xs text-gray-400 mb-3 capitalize">Showing {user.productAccess} orders only, based on your assigned access.</p>
+      )}
 
       <div className="flex gap-2 mb-4 flex-wrap">
         {['', 'reserved', 'partially_dispatched', 'dispatched', 'delivered', 'cancelled'].map((s) => (
