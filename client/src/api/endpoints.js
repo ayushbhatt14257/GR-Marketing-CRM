@@ -42,6 +42,31 @@ export const productApi = {
   remove: (id) => client.delete(`/products/${id}`),
 };
 
+export const modelStockApi = {
+  list: (productId) => client.get('/model-stock', { params: { productId } }),
+  create: (data) => client.post('/model-stock', data),
+  update: (id, data) => client.patch(`/model-stock/${id}`, data),
+  remove: (id) => client.delete(`/model-stock/${id}`),
+  previewUpload: (formData) => client.post('/model-stock/upload/preview', formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
+  commitUpload: (data) => client.post('/model-stock/upload/commit', data),
+  // Downloads require the auth header, so this can't be a plain <a href> link —
+  // fetch as a blob and trigger the browser download manually.
+  download: async (params, filenameHint = 'model-stock.xlsx') => {
+    const res = await client.get('/model-stock/export', { params, responseType: 'blob' });
+    const disposition = res.headers['content-disposition'];
+    const match = disposition && disposition.match(/filename="(.+)"/);
+    const filename = match ? match[1] : filenameHint;
+    const url = window.URL.createObjectURL(new Blob([res.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  },
+};
+
 export const stockUploadApi = {
   preview: (formData) => client.post('/stock/upload/preview', formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
   commit: (data) => client.post('/stock/upload/commit', data),

@@ -2,6 +2,7 @@ const asyncHandler = require('../utils/asyncHandler');
 const Product = require('../models/Product');
 const StockLedger = require('../models/StockLedger');
 const { getStockSummary } = require('../services/stockService');
+const { getModelSyncMap } = require('../services/modelSyncService');
 
 // GET /api/products?category=fonfox&active=true
 const listProducts = asyncHandler(async (req, res) => {
@@ -10,9 +11,14 @@ const listProducts = asyncHandler(async (req, res) => {
   if (req.query.active === 'true') filter.isActive = true;
 
   const products = await Product.find(filter).populate('lastUpdatedBy', 'name').sort({ name: 1 }).lean();
-  const summary = await getStockSummary(products.map((p) => p._id));
+  const productIds = products.map((p) => p._id);
+  const summary = await getStockSummary(productIds);
 
-  res.json(products.map((p) => ({ ...p, stock: summary[p._id] })));
+  const productTotals = {};
+  products.forEach((p) => { productTotals[String(p._id)] = p.totalStock; });
+  const syncMap = await getModelSyncMap(productIds, productTotals);
+
+  res.json(products.map((p) => ({ ...p, stock: summary[p._id], modelSync: syncMap[p._id] })));
 });
 
 // POST /api/products  (warehouse/admin)

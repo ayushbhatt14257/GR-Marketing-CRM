@@ -1,9 +1,10 @@
+import { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, UserPlus, Users, ShoppingCart, Package, Truck,
   Warehouse, Settings, LogOut, Moon, Sun, Megaphone, ListChecks, ClipboardList,
-  BarChart3, FileSpreadsheet, CalendarCheck,
+  BarChart3, FileSpreadsheet, CalendarCheck, Layers, Menu, X,
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { useThemeStore } from '../store/themeStore';
@@ -24,6 +25,7 @@ const NAV = {
   warehouse: [
     { to: '/', label: 'Dashboard', icon: LayoutDashboard },
     { to: '/products', label: 'Products', icon: Package },
+    { to: '/model-stock', label: 'Model Stock', icon: Layers },
     { to: '/stock-upload', label: 'Stock Upload', icon: Warehouse },
     { to: '/orders', label: 'All Orders', icon: ShoppingCart },
     { to: '/announcements', label: 'Announcements', icon: Megaphone },
@@ -44,6 +46,7 @@ const NAV = {
     { to: '/orders', label: 'All Orders', icon: Package },
     { to: '/customers', label: 'Customers', icon: Users },
     { to: '/products', label: 'Products', icon: Warehouse },
+    { to: '/model-stock', label: 'Model Stock', icon: Layers },
     { to: '/stock-upload', label: 'Stock Upload', icon: Truck },
     { to: '/users', label: 'Users', icon: Users },
     { to: '/analytics', label: 'Analytics', icon: BarChart3 },
@@ -61,6 +64,9 @@ export default function AppLayout() {
   const { theme, toggle } = useThemeStore();
   const navigate = useNavigate();
   const items = NAV[user?.role] || [];
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  const doLogout = () => { logout(); navigate('/login'); };
 
   return (
     <div className="min-h-screen flex">
@@ -93,7 +99,7 @@ export default function AppLayout() {
         </nav>
 
         <button
-          onClick={() => { logout(); navigate('/login'); }}
+          onClick={doLogout}
           className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors mt-2"
         >
           <LogOut size={17} /> Log out
@@ -102,7 +108,12 @@ export default function AppLayout() {
 
       <div className="flex-1 flex flex-col min-w-0">
         <header className="h-16 shrink-0 border-b border-gray-200 dark:border-ink-800 bg-white/70 dark:bg-ink-900/70 backdrop-blur-md flex items-center justify-between px-4 md:px-6 sticky top-0 z-40">
-          <div className="md:hidden font-extrabold">GR CRM</div>
+          <div className="md:hidden flex items-center gap-2">
+            <button onClick={() => setDrawerOpen(true)} className="w-9 h-9 rounded-lg bg-gray-100 dark:bg-ink-800 flex items-center justify-center">
+              <Menu size={18} />
+            </button>
+            <span className="font-extrabold">GR CRM</span>
+          </div>
           <div className="hidden md:block text-sm text-gray-400">
             {new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
           </div>
@@ -133,9 +144,9 @@ export default function AppLayout() {
         </motion.main>
       </div>
 
-      {/* Mobile bottom nav */}
+      {/* Mobile bottom nav — a few priority shortcuts + a Menu button for everything else */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white/90 dark:bg-ink-900/90 backdrop-blur-md border-t border-gray-200 dark:border-ink-800 flex items-center justify-around px-2 py-2 z-40">
-        {items.slice(0, 5).map((item) => (
+        {items.slice(0, 4).map((item) => (
           <NavLink
             key={item.to}
             to={item.to}
@@ -150,7 +161,70 @@ export default function AppLayout() {
             {item.label.split(' ')[0]}
           </NavLink>
         ))}
+        <button onClick={() => setDrawerOpen(true)} className="flex flex-col items-center gap-0.5 px-2 py-1 rounded-lg text-[10px] font-medium text-gray-400">
+          <Menu size={18} />
+          More
+        </button>
       </nav>
+
+      {/* Full mobile menu drawer — every nav item + logout, so nothing is ever out of reach */}
+      <AnimatePresence>
+        {drawerOpen && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="md:hidden fixed inset-0 bg-black/50 z-50 flex items-end"
+            onClick={() => setDrawerOpen(false)}
+          >
+            <motion.div
+              initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+              className="w-full bg-white dark:bg-ink-900 rounded-t-3xl max-h-[80vh] overflow-y-auto p-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-brand-600 to-accent-500 flex items-center justify-center text-white font-bold">GR</div>
+                  <div>
+                    <p className="font-extrabold text-sm leading-none">GR Marketing</p>
+                    <p className="text-[11px] text-gray-400">CRM</p>
+                  </div>
+                </div>
+                <button onClick={() => setDrawerOpen(false)} className="w-9 h-9 rounded-lg bg-gray-100 dark:bg-ink-800 flex items-center justify-center">
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2 mb-2">
+                {items.map((item) => (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    end={item.to === '/'}
+                    onClick={() => setDrawerOpen(false)}
+                    className={({ isActive }) =>
+                      `flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl text-xs font-medium text-center ${
+                        isActive
+                          ? 'bg-gradient-to-r from-brand-600 to-brand-500 text-white'
+                          : 'bg-gray-50 dark:bg-ink-800 text-gray-600 dark:text-gray-300'
+                      }`
+                    }
+                  >
+                    <item.icon size={19} />
+                    {item.label}
+                  </NavLink>
+                ))}
+              </div>
+
+              <button
+                onClick={doLogout}
+                className="w-full flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-sm font-semibold text-red-500 bg-red-50 dark:bg-red-500/10 mt-3"
+              >
+                <LogOut size={17} /> Log out
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -17,6 +17,7 @@ import MyLeadsPage from './pages/marketing/MyLeadsPage';
 
 import WarehouseDashboard from './pages/warehouse/WarehouseDashboard';
 import ProductsPage from './pages/warehouse/ProductsPage';
+import ModelStockPage from './pages/warehouse/ModelStockPage';
 import StockUploadPage from './pages/warehouse/StockUploadPage';
 
 import DispatchDashboard from './pages/dispatch/DispatchDashboard';
@@ -94,6 +95,7 @@ export default function App() {
           {/* Warehouse + Admin */}
           <Route element={<RequireRole roles={['warehouse', 'admin']} />}>
             <Route path="/products" element={<ProductsPage />} />
+            <Route path="/model-stock" element={<ModelStockPage />} />
             <Route path="/stock-upload" element={<StockUploadPage />} />
           </Route>
 

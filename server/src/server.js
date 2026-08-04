@@ -29,6 +29,7 @@ app.use('/api/customers', require('./routes/customers'));
 app.use('/api/leads', require('./routes/leads'));
 app.use('/api/orders', require('./routes/orders'));
 app.use('/api/products', require('./routes/products'));
+app.use('/api/model-stock', require('./routes/modelStock'));
 app.use('/api/stock', require('./routes/stock'));
 app.use('/api/users', require('./routes/users'));
 app.use('/api/notifications', require('./routes/notifications'));
