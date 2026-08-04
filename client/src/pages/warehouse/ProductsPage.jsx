@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { Plus, AlertTriangle, Loader2, Trash2, Check, X, Pencil } from 'lucide-react';
+import { Plus, AlertTriangle, Loader2, Trash2, Check, X, Pencil, Lock } from 'lucide-react';
 import { productApi } from '../../api/endpoints';
 import { useAuthStore } from '../../store/authStore';
 
@@ -23,6 +23,15 @@ function StockCell({ product, onSaved }) {
     } catch (err) { toast.error(err.response?.data?.message || 'Failed'); }
     finally { setSaving(false); }
   };
+
+  if (product.modelManaged) {
+    return (
+      <Link to="/model-stock" className="flex items-center gap-1.5 text-gray-500 hover:text-brand-500" title="Stock is auto-calculated from Model Stock — click to manage models">
+        <Lock size={12} />
+        <span>{product.totalStock} <span className="text-[10px] text-gray-400">(from models)</span></span>
+      </Link>
+    );
+  }
 
   if (editing) {
     return (
@@ -141,11 +150,6 @@ export default function ProductsPage() {
                   <td className="px-4 py-3 capitalize text-gray-500">{p.category}</td>
                   <td className="px-4 py-3">
                     <StockCell product={p} onSaved={load} />
-                    {p.modelSync?.hasModels && !p.modelSync.inSync && (
-                      <Link to="/model-stock" className="flex items-center gap-1 text-[11px] text-amber-500 font-semibold mt-1 hover:underline">
-                        <AlertTriangle size={11} /> Model breakdown out of sync
-                      </Link>
-                    )}
                   </td>
                   <td className="px-4 py-3">
                     <button onClick={() => toggleActive(p)} className={`badge ${p.isActive ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10' : 'bg-gray-100 text-gray-500 dark:bg-ink-800'}`}>

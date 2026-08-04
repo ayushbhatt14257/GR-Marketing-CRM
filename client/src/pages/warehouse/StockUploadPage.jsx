@@ -148,6 +148,21 @@ export default function StockUploadPage() {
             </div>
           </div>
 
+          {preview.skippedManaged?.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold text-amber-500 mb-1.5">
+                ⚠ Skipped — controlled by Model Stock ({preview.skippedManaged.length})
+              </p>
+              <div className="max-h-32 overflow-y-auto space-y-1">
+                {preview.skippedManaged.map((m, i) => (
+                  <div key={i} className="text-xs bg-amber-50 dark:bg-amber-500/10 px-2.5 py-1.5 rounded-lg">
+                    {m.name} — this product's stock is managed by its models, update it on the Model Stock page instead.
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <button
             onClick={doCommit}
             disabled={committing || (preview.toUpdate.length === 0 && preview.toCreate.length === 0)}

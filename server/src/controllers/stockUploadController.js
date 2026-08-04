@@ -47,17 +47,24 @@ const previewUpload = asyncHandler(async (req, res) => {
 
   const toUpdate = [];
   const toCreate = [];
+  const skippedManaged = [];
 
   for (const row of rows) {
     const found = byName.get(row.name.trim().toLowerCase());
     if (found) {
-      toUpdate.push({ productId: found._id, name: found.name, quantity: row.quantity, currentStock: found.totalStock });
+      if (found.modelManaged) {
+        // This product's stock is controlled by its Model Stock breakdown —
+        // flat upload can't touch it. Surface it so the sheet owner knows why.
+        skippedManaged.push({ name: found.name, quantity: row.quantity });
+      } else {
+        toUpdate.push({ productId: found._id, name: found.name, quantity: row.quantity, currentStock: found.totalStock });
+      }
     } else {
       toCreate.push({ name: row.name, quantity: row.quantity });
     }
   }
 
-  res.json({ category, toUpdate, toCreate });
+  res.json({ category, toUpdate, toCreate, skippedManaged });
 });
 
 // POST /api/stock/upload/commit

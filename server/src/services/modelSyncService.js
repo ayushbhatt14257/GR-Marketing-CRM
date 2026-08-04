@@ -1,4 +1,24 @@
 const ProductModel = require('../models/ProductModel');
+const Product = require('../models/Product');
+
+// Recomputes a product's totalStock from its models whenever a model is
+// created/updated/deleted. If the product has 1+ active models, its stock
+// becomes fully auto-managed (sum of models) — manual/Excel edits to
+// totalStock are blocked elsewhere (see productController). If the last
+// model is removed, it unlocks back to manual entry, leaving totalStock at
+// whatever value it last held (not reset to 0).
+async function syncParentStock(productId) {
+  const models = await ProductModel.find({ productId, isDeleted: false }).select('quantity').lean();
+
+  if (models.length === 0) {
+    await Product.updateOne({ _id: productId }, { modelManaged: false });
+    return { modelManaged: false, totalStock: null };
+  }
+
+  const total = models.reduce((sum, m) => sum + m.quantity, 0);
+  await Product.updateOne({ _id: productId }, { totalStock: total, modelManaged: true });
+  return { modelManaged: true, totalStock: total };
+}
 
 // Returns { [productId]: { modelTotal, inSync, diff } } for the given product
 // IDs. Uses exactly ONE aggregation query regardless of how many products
@@ -27,4 +47,4 @@ async function getModelSyncMap(productIds, productTotals) {
   return result;
 }
 
-module.exports = { getModelSyncMap };
+module.exports = { getModelSyncMap, syncParentStock };

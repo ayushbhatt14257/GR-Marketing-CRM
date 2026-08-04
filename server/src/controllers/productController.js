@@ -69,6 +69,10 @@ const updateProduct = asyncHandler(async (req, res) => {
   if (lowStockThreshold !== undefined) product.lowStockThreshold = lowStockThreshold;
 
   if (totalStock !== undefined && Number(totalStock) !== product.totalStock) {
+    if (product.modelManaged) {
+      res.status(400);
+      throw new Error('This product\'s stock is controlled by its model breakdown — update models on the Model Stock page instead.');
+    }
     const delta = Number(totalStock) - product.totalStock;
     product.totalStock = Number(totalStock);
     await StockLedger.create({
@@ -98,6 +102,10 @@ const stockIn = asyncHandler(async (req, res) => {
   if (!product) {
     res.status(404);
     throw new Error('Product not found');
+  }
+  if (product.modelManaged) {
+    res.status(400);
+    throw new Error('This product\'s stock is controlled by its model breakdown — update models on the Model Stock page instead.');
   }
 
   product.totalStock += Number(quantity);

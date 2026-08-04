@@ -10,6 +10,11 @@ const productSchema = new mongoose.Schema(
     // from Order documents (see stockService.js) — never cached here, so it
     // can never drift out of sync no matter how orders/cancellations flow.
     totalStock: { type: Number, default: 0, min: 0 },
+    // Once true, totalStock is auto-computed as the sum of this product's
+    // models (see modelSyncService.syncParentStock) and can no longer be
+    // edited directly — manual/Excel stock entry is blocked for it. Flips
+    // back to false automatically if all its models are deleted.
+    modelManaged: { type: Boolean, default: false },
     lowStockThreshold: { type: Number, default: 20 },
     lastUpdatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
     isDeleted: { type: Boolean, default: false },

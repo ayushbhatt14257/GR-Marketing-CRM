@@ -156,8 +156,6 @@ function ProductCard({ product, onRefresh }) {
 
   useEffect(() => { if (expanded) load(); }, [expanded]);
 
-  const modelTotal = models.reduce((s, m) => s + m.quantity, 0);
-  const inSync = modelTotal === product.totalStock;
 
   const addModel = async (e) => {
     e.preventDefault();
@@ -182,10 +180,9 @@ function ProductCard({ product, onRefresh }) {
             <p className="font-semibold">{product.name}</p>
             <p className="text-xs text-gray-400 capitalize">
               {product.category} · Parent total: {product.totalStock}
-              {expanded && !loading && (
-                <span className={inSync ? 'text-emerald-500 ml-1' : 'text-amber-500 ml-1 font-semibold'}>
-                  · Models sum: {modelTotal} {!inSync && '⚠ out of sync'}
-                </span>
+              {product.modelManaged && <span className="text-emerald-500 ml-1 font-semibold">· 🔒 Auto-managed from models</span>}
+              {!product.modelManaged && models.length === 0 && expanded && !loading && (
+                <span className="text-gray-400 ml-1">· No models yet — parent stock is still manually editable</span>
               )}
             </p>
           </div>
@@ -242,7 +239,7 @@ export default function ModelStockPage() {
 
   useEffect(() => { load(); }, [category]);
 
-  const outOfSyncCount = products.filter((p) => p.modelSync?.hasModels && !p.modelSync.inSync).length;
+  const managedCount = products.filter((p) => p.modelManaged).length;
 
   const downloadAll = () => modelStockApi.download(category === 'all' ? {} : { category }, `model-stock-${category}.xlsx`);
 
@@ -253,11 +250,11 @@ export default function ModelStockPage() {
         <button onClick={downloadAll} className="btn-secondary text-xs py-2 px-3"><Download size={13} /> Export {category === 'all' ? 'all' : category}</button>
       </div>
       <p className="text-sm text-gray-500 mb-1">
-        Track the model breakdown within each product. This is reference-only — order fulfillment always uses the parent product's total stock.
+        Add models under a product to track its breakdown. Once a product has models, its total stock on the Products page becomes locked and auto-calculated as the sum of those models.
       </p>
-      {outOfSyncCount > 0 && (
-        <p className="text-xs text-amber-500 font-semibold flex items-center gap-1 mb-3">
-          <AlertTriangle size={12} /> {outOfSyncCount} product{outOfSyncCount === 1 ? '' : 's'} need model breakdown updates
+      {managedCount > 0 && (
+        <p className="text-xs text-emerald-500 font-semibold flex items-center gap-1 mb-3">
+          🔒 {managedCount} product{managedCount === 1 ? '' : 's'} auto-managed from model breakdown
         </p>
       )}
 

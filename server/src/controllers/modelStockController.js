@@ -2,7 +2,7 @@ const ExcelJS = require('exceljs');
 const asyncHandler = require('../utils/asyncHandler');
 const Product = require('../models/Product');
 const ProductModel = require('../models/ProductModel');
-const { getModelSyncMap } = require('../services/modelSyncService');
+const { getModelSyncMap, syncParentStock } = require('../services/modelSyncService');
 
 // GET /api/model-stock?productId=  -- list models for one product
 const listModels = asyncHandler(async (req, res) => {
@@ -34,7 +34,8 @@ const createModel = asyncHandler(async (req, res) => {
     quantity: Number(quantity) || 0,
     lastUpdatedBy: req.user._id,
   });
-  res.status(201).json(model);
+  const sync = await syncParentStock(productId);
+  res.status(201).json({ ...model.toObject(), parentSync: sync });
 });
 
 // PATCH /api/model-stock/:id  { name, quantity }
@@ -49,7 +50,8 @@ const updateModel = asyncHandler(async (req, res) => {
   if (quantity !== undefined) model.quantity = Number(quantity);
   model.lastUpdatedBy = req.user._id;
   await model.save();
-  res.json(model);
+  const sync = await syncParentStock(model.productId);
+  res.json({ ...model.toObject(), parentSync: sync });
 });
 
 // DELETE /api/model-stock/:id
@@ -61,7 +63,8 @@ const deleteModel = asyncHandler(async (req, res) => {
   }
   model.isDeleted = true;
   await model.save();
-  res.json({ message: 'Model deleted' });
+  const sync = await syncParentStock(model.productId);
+  res.json({ message: 'Model deleted', parentSync: sync });
 });
 
 // ---------- Excel upload (per parent product) ----------
@@ -160,7 +163,8 @@ const commitUpload = asyncHandler(async (req, res) => {
     created = inserted.length;
   }
 
-  res.json({ updated, created });
+  const sync = await syncParentStock(productId);
+  res.json({ updated, created, parentSync: sync });
 });
 
 // ---------- Export ----------
