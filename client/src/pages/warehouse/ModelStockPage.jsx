@@ -6,6 +6,7 @@ import {
   UploadCloud, Download, Layers, CheckCircle2,
 } from 'lucide-react';
 import { productApi, modelStockApi } from '../../api/endpoints';
+import { useAuthStore } from '../../store/authStore';
 
 function UploadPanel({ product, onClose, onDone }) {
   const [file, setFile] = useState(null);
@@ -43,6 +44,14 @@ function UploadPanel({ product, onClose, onDone }) {
     finally { setCommitting(false); }
   };
 
+  const removeUpdateRow = (modelId) => {
+    setPreview((p) => ({ ...p, toUpdate: p.toUpdate.filter((m) => m.modelId !== modelId) }));
+  };
+
+  const removeCreateRow = (index) => {
+    setPreview((p) => ({ ...p, toCreate: p.toCreate.filter((_, i) => i !== index) }));
+  };
+
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div className="card p-5 w-full max-w-lg max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
@@ -71,8 +80,12 @@ function UploadPanel({ product, onClose, onDone }) {
               <p className="text-xs font-semibold text-emerald-600 mb-1">Update ({preview.toUpdate.length})</p>
               <div className="max-h-32 overflow-y-auto space-y-1">
                 {preview.toUpdate.map((m) => (
-                  <div key={m.modelId} className="flex justify-between text-xs bg-emerald-50 dark:bg-emerald-500/10 px-2 py-1 rounded-lg">
-                    <span>{m.name}</span><span>{m.currentQty} → {mode === 'set' ? m.quantity : m.currentQty + m.quantity}</span>
+                  <div key={m.modelId} className="flex justify-between items-center text-xs bg-emerald-50 dark:bg-emerald-500/10 px-2 py-1 rounded-lg">
+                    <span>{m.name}</span>
+                    <span className="flex items-center gap-2">
+                      {m.currentQty} → {mode === 'set' ? m.quantity : m.currentQty + m.quantity}
+                      <button onClick={() => removeUpdateRow(m.modelId)} className="text-gray-400 hover:text-red-500"><X size={12} /></button>
+                    </span>
                   </div>
                 ))}
               </div>
@@ -81,14 +94,22 @@ function UploadPanel({ product, onClose, onDone }) {
               <p className="text-xs font-semibold text-brand-600 mb-1">New ({preview.toCreate.length})</p>
               <div className="max-h-32 overflow-y-auto space-y-1">
                 {preview.toCreate.map((m, i) => (
-                  <div key={i} className="flex justify-between text-xs bg-brand-50 dark:bg-brand-500/10 px-2 py-1 rounded-lg">
-                    <span>{m.name}</span><span>+{m.quantity}</span>
+                  <div key={i} className="flex justify-between items-center text-xs bg-brand-50 dark:bg-brand-500/10 px-2 py-1 rounded-lg">
+                    <span>{m.name}</span>
+                    <span className="flex items-center gap-2">
+                      +{m.quantity}
+                      <button onClick={() => removeCreateRow(i)} className="text-gray-400 hover:text-red-500"><X size={12} /></button>
+                    </span>
                   </div>
                 ))}
               </div>
             </div>
 
-            <button onClick={doCommit} disabled={committing} className="btn-primary w-full">
+            <button
+              onClick={doCommit}
+              disabled={committing || (preview.toUpdate.length === 0 && preview.toCreate.length === 0)}
+              className="btn-primary w-full"
+            >
               {committing ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />} Confirm
             </button>
           </div>
@@ -98,7 +119,7 @@ function UploadPanel({ product, onClose, onDone }) {
   );
 }
 
-function ModelRow({ model, onSaved }) {
+function ModelRow({ model, onSaved, canEdit }) {
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(model.quantity);
   const [saving, setSaving] = useState(false);
@@ -124,7 +145,9 @@ function ModelRow({ model, onSaved }) {
     <tr className="border-t border-gray-100 dark:border-ink-800">
       <td className="px-4 py-2.5">{model.name}</td>
       <td className="px-4 py-2.5">
-        {editing ? (
+        {!canEdit ? (
+          <span>{model.quantity}</span>
+        ) : editing ? (
           <div className="flex items-center gap-1.5">
             <input type="number" min={0} autoFocus value={value} onChange={(e) => setValue(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && save()} className="input-field w-24 py-1 text-sm" />
             <button onClick={save} disabled={saving} className="text-emerald-500">{saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}</button>
@@ -134,12 +157,16 @@ function ModelRow({ model, onSaved }) {
           <button onClick={() => setEditing(true)} className="hover:underline">{model.quantity}</button>
         )}
       </td>
-      <td className="px-4 py-2.5"><button onClick={remove} className="text-gray-400 hover:text-red-500"><Trash2 size={13} /></button></td>
+      <td className="px-4 py-2.5">
+        {canEdit && <button onClick={remove} className="text-gray-400 hover:text-red-500"><Trash2 size={13} /></button>}
+      </td>
     </tr>
   );
 }
 
 function ProductCard({ product, onRefresh }) {
+  const user = useAuthStore((s) => s.user);
+  const canEdit = ['admin', 'warehouse'].includes(user?.role);
   const [expanded, setExpanded] = useState(false);
   const [models, setModels] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -194,12 +221,16 @@ function ProductCard({ product, onRefresh }) {
         {expanded && (
           <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="border-t border-gray-100 dark:border-ink-800">
             <div className="flex flex-wrap gap-2 p-3">
-              <form onSubmit={addModel} className="flex gap-2 flex-1 min-w-[240px]">
-                <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Model name" className="input-field flex-1 text-sm" />
-                <input type="number" min={0} value={newQty} onChange={(e) => setNewQty(e.target.value)} placeholder="Qty" className="input-field w-20 text-sm" />
-                <button type="submit" className="btn-secondary text-xs py-2 px-3 shrink-0"><Plus size={14} /></button>
-              </form>
-              <button onClick={() => setShowUpload(true)} className="btn-secondary text-xs py-2 px-3"><UploadCloud size={13} /> Upload</button>
+              {canEdit && (
+                <>
+                  <form onSubmit={addModel} className="flex gap-2 flex-1 min-w-[240px]">
+                    <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Model name" className="input-field flex-1 text-sm" />
+                    <input type="number" min={0} value={newQty} onChange={(e) => setNewQty(e.target.value)} placeholder="Qty" className="input-field w-20 text-sm" />
+                    <button type="submit" className="btn-secondary text-xs py-2 px-3 shrink-0"><Plus size={14} /></button>
+                  </form>
+                  <button onClick={() => setShowUpload(true)} className="btn-secondary text-xs py-2 px-3"><UploadCloud size={13} /> Upload</button>
+                </>
+              )}
               <button onClick={download} className="btn-secondary text-xs py-2 px-3"><Download size={13} /> Export</button>
             </div>
 
@@ -211,7 +242,7 @@ function ProductCard({ product, onRefresh }) {
                   <tr><th className="px-4 py-2">Model</th><th className="px-4 py-2">Quantity</th><th className="px-4 py-2"></th></tr>
                 </thead>
                 <tbody>
-                  {models.map((m) => <ModelRow key={m._id} model={m} onSaved={() => { load(); onRefresh(); }} />)}
+                  {models.map((m) => <ModelRow key={m._id} model={m} onSaved={() => { load(); onRefresh(); }} canEdit={canEdit} />)}
                   {models.length === 0 && <tr><td colSpan={3} className="px-4 py-6 text-center text-gray-400">No models tracked yet.</td></tr>}
                 </tbody>
               </table>
@@ -220,15 +251,19 @@ function ProductCard({ product, onRefresh }) {
         )}
       </AnimatePresence>
 
-      {showUpload && <UploadPanel product={product} onClose={() => setShowUpload(false)} onDone={() => { load(); onRefresh(); }} />}
+      {canEdit && showUpload && <UploadPanel product={product} onClose={() => setShowUpload(false)} onDone={() => { load(); onRefresh(); }} />}
     </div>
   );
 }
 
 export default function ModelStockPage() {
+  const user = useAuthStore((s) => s.user);
+  const canEdit = ['admin', 'warehouse'].includes(user?.role);
+  const restrictedCategory = ['marketing', 'dispatch'].includes(user?.role) && user?.productAccess !== 'both' ? user.productAccess : null;
+
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [category, setCategory] = useState('all');
+  const [category, setCategory] = useState(restrictedCategory || 'all');
 
   const load = async () => {
     setLoading(true);
@@ -250,7 +285,9 @@ export default function ModelStockPage() {
         <button onClick={downloadAll} className="btn-secondary text-xs py-2 px-3"><Download size={13} /> Export {category === 'all' ? 'all' : category}</button>
       </div>
       <p className="text-sm text-gray-500 mb-1">
-        Add models under a product to track its breakdown. Once a product has models, its total stock on the Products page becomes locked and auto-calculated as the sum of those models.
+        {canEdit
+          ? "Add models under a product to track its breakdown. Once a product has models, its total stock on the Products page becomes locked and auto-calculated as the sum of those models."
+          : 'View the model breakdown tracked for each product.'}
       </p>
       {managedCount > 0 && (
         <p className="text-xs text-emerald-500 font-semibold flex items-center gap-1 mb-3">
@@ -258,11 +295,15 @@ export default function ModelStockPage() {
         </p>
       )}
 
-      <div className="flex gap-2 mb-4">
-        {['all', 'fonfox', 'supreme'].map((c) => (
-          <button key={c} onClick={() => setCategory(c)} className={`chip ${category === c ? 'chip-active' : 'chip-inactive'} capitalize`}>{c}</button>
-        ))}
-      </div>
+      {restrictedCategory ? (
+        <p className="text-xs text-gray-400 mb-4 capitalize">Showing {restrictedCategory} products only, based on your assigned access.</p>
+      ) : (
+        <div className="flex gap-2 mb-4">
+          {['all', 'fonfox', 'supreme'].map((c) => (
+            <button key={c} onClick={() => setCategory(c)} className={`chip ${category === c ? 'chip-active' : 'chip-inactive'} capitalize`}>{c}</button>
+          ))}
+        </div>
+      )}
 
       {loading ? (
         <div className="flex items-center justify-center gap-2 text-sm text-gray-400 py-16"><Loader2 size={18} className="animate-spin" /> Loading products...</div>

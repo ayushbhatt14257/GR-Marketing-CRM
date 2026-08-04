@@ -11,6 +11,15 @@ const listModels = asyncHandler(async (req, res) => {
     res.status(400);
     throw new Error('productId is required');
   }
+
+  if (['marketing', 'dispatch'].includes(req.user.role) && req.user.productAccess !== 'both') {
+    const product = await Product.findById(productId).select('category').lean();
+    if (product && product.category !== req.user.productAccess) {
+      res.status(403);
+      throw new Error('You do not have access to this category');
+    }
+  }
+
   const models = await ProductModel.find({ productId, isDeleted: false }).sort({ name: 1 }).lean();
   res.json(models);
 });
@@ -173,20 +182,31 @@ const commitUpload = asyncHandler(async (req, res) => {
 // Exports whatever the current filtered view represents: one product's model
 // breakdown, all models across a category, or (no params) everything.
 const exportModels = asyncHandler(async (req, res) => {
-  const { productId, category } = req.query;
+  let { productId, category } = req.query;
   const dateStr = new Date().toISOString().slice(0, 10);
+
+  const isRestricted = ['marketing', 'dispatch'].includes(req.user.role) && req.user.productAccess !== 'both';
 
   let filter = { isDeleted: false };
   let filename = `model-stock-${dateStr}.xlsx`;
 
   if (productId) {
-    filter.productId = productId;
     const product = await Product.findById(productId).lean();
+    if (isRestricted && product && product.category !== req.user.productAccess) {
+      res.status(403);
+      throw new Error('You do not have access to this category');
+    }
+    filter.productId = productId;
     filename = `model-stock-${(product?.name || 'product').replace(/\s+/g, '-')}-${dateStr}.xlsx`;
-  } else if (category) {
-    const products = await Product.find({ category, isDeleted: false }).select('_id').lean();
-    filter.productId = { $in: products.map((p) => p._id) };
-    filename = `model-stock-${category}-${dateStr}.xlsx`;
+  } else {
+    // No specific product requested — restricted users can only ever export
+    // their own category, regardless of what (if anything) was requested.
+    if (isRestricted) category = req.user.productAccess;
+    if (category) {
+      const products = await Product.find({ category, isDeleted: false }).select('_id').lean();
+      filter.productId = { $in: products.map((p) => p._id) };
+      filename = `model-stock-${category}-${dateStr}.xlsx`;
+    }
   }
 
   const models = await ProductModel.find(filter).populate('productId', 'name category').sort({ name: 1 }).lean();

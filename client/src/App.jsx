@@ -95,9 +95,11 @@ export default function App() {
           {/* Warehouse + Admin */}
           <Route element={<RequireRole roles={['warehouse', 'admin']} />}>
             <Route path="/products" element={<ProductsPage />} />
-            <Route path="/model-stock" element={<ModelStockPage />} />
             <Route path="/stock-upload" element={<StockUploadPage />} />
           </Route>
+
+          {/* Model Stock — viewable by every role; editing controls inside the page are hidden for non-warehouse/admin users */}
+          <Route path="/model-stock" element={<ModelStockPage />} />
 
           {/* Admin only */}
           <Route element={<RequireRole roles={['admin']} />}>

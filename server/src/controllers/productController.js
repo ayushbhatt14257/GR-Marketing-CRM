@@ -7,7 +7,13 @@ const { getModelSyncMap } = require('../services/modelSyncService');
 // GET /api/products?category=fonfox&active=true
 const listProducts = asyncHandler(async (req, res) => {
   const filter = { isDeleted: false };
-  if (req.query.category) filter.category = req.query.category;
+
+  const isRestricted = ['marketing', 'dispatch'].includes(req.user.role) && req.user.productAccess !== 'both';
+  if (isRestricted) {
+    filter.category = req.user.productAccess; // overrides any query param — this is access control, not a preference
+  } else if (req.query.category) {
+    filter.category = req.query.category;
+  }
   if (req.query.active === 'true') filter.isActive = true;
 
   const products = await Product.find(filter).populate('lastUpdatedBy', 'name').sort({ name: 1 }).lean();

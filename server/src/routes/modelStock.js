@@ -7,13 +7,19 @@ const {
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
-router.use(protect, allow('admin', 'warehouse'));
+router.use(protect);
+
+// Viewing/exporting is open to every role — category access is enforced
+// per-user inside the controller (marketing/dispatch users locked to one
+// category only ever see that category's data).
 router.get('/', listModels);
 router.get('/export', exportModels);
-router.post('/', createModel);
-router.patch('/:id', updateModel);
-router.delete('/:id', deleteModel);
-router.post('/upload/preview', upload.single('file'), previewUpload);
-router.post('/upload/commit', commitUpload);
+
+// Editing stays admin/warehouse only.
+router.post('/', allow('admin', 'warehouse'), createModel);
+router.patch('/:id', allow('admin', 'warehouse'), updateModel);
+router.delete('/:id', allow('admin', 'warehouse'), deleteModel);
+router.post('/upload/preview', allow('admin', 'warehouse'), upload.single('file'), previewUpload);
+router.post('/upload/commit', allow('admin', 'warehouse'), commitUpload);
 
 module.exports = router;
