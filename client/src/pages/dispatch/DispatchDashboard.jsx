@@ -24,7 +24,7 @@ export default function DispatchDashboard() {
                 {o.priority === 'urgent' && <Zap size={13} className="text-red-500" />}
                 {o.customerId?.name} <span className="text-xs text-gray-400">({o.ownerId?.name})</span>
               </span>
-              <span className="text-xs text-gray-400">{new Date(o.deliveryDate).toLocaleDateString()}</span>
+              <span className="text-xs text-gray-400">{new Date(o.createdAt).toLocaleDateString()}</span>
             </div>
           ))}
           {data.queue.length === 0 && <p className="text-sm text-gray-400">Queue is empty.</p>}

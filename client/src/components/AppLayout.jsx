@@ -71,9 +71,9 @@ export default function AppLayout() {
   const doLogout = () => { logout(); navigate('/login'); };
 
   return (
-    <div className="min-h-screen flex">
-      <aside className="w-64 shrink-0 hidden md:flex flex-col border-r border-gray-200 dark:border-ink-800 bg-white dark:bg-ink-900 p-4">
-        <div className="flex items-center gap-2 px-2 mb-8">
+    <div className="h-screen flex overflow-hidden">
+      <aside className="w-64 shrink-0 hidden md:flex flex-col h-screen sticky top-0 border-r border-gray-200 dark:border-ink-800 bg-white dark:bg-ink-900 p-4 overflow-hidden">
+        <div className="flex items-center gap-2 px-2 mb-8 shrink-0">
           <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-brand-600 to-accent-500 flex items-center justify-center text-white font-bold">GR</div>
           <div>
             <p className="font-extrabold text-sm leading-none">GR Marketing</p>
@@ -81,7 +81,7 @@ export default function AppLayout() {
           </div>
         </div>
 
-        <nav className="flex-1 space-y-1">
+        <nav className="flex-1 min-h-0 overflow-y-auto space-y-1 pr-1">
           {items.map((item) => (
             <NavLink
               key={item.to}
@@ -102,13 +102,13 @@ export default function AppLayout() {
 
         <button
           onClick={doLogout}
-          className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors mt-2"
+          className="shrink-0 flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors mt-2 border-t border-gray-100 dark:border-ink-800 pt-3"
         >
           <LogOut size={17} /> Log out
         </button>
       </aside>
 
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 min-h-0">
         <header className="h-16 shrink-0 border-b border-gray-200 dark:border-ink-800 bg-white/70 dark:bg-ink-900/70 backdrop-blur-md flex items-center justify-between px-4 md:px-6 sticky top-0 z-40">
           <div className="md:hidden flex items-center gap-2">
             <button onClick={() => setDrawerOpen(true)} className="w-9 h-9 rounded-lg bg-gray-100 dark:bg-ink-800 flex items-center justify-center">

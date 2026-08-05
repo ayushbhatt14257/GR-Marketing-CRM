@@ -32,7 +32,7 @@ const orderSchema = new mongoose.Schema(
     category: { type: String, enum: ['fonfox', 'supreme'], required: true },
     items: [orderItemSchema],
 
-    deliveryDate: { type: Date, required: true }, // informational only, does not affect queue order
+    deliveryDate: { type: Date, default: null }, // legacy field, no longer collected on the order form — kept for old records only
     remark: { type: String, default: '', trim: true }, // optional, unlike Lead's remark
     priority: { type: String, enum: ['normal', 'urgent'], default: 'normal' },
     priorityChangedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },

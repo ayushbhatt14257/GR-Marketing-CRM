@@ -65,15 +65,15 @@ export default function MarketingDashboard() {
         </div>
 
         <div className="card p-4">
-          <p className="text-sm font-semibold mb-3 flex items-center gap-1.5"><Zap size={14} className="text-amber-500" /> Upcoming deliveries</p>
+          <p className="text-sm font-semibold mb-3 flex items-center gap-1.5"><Zap size={14} className="text-amber-500" /> Recent orders in progress</p>
           <div className="space-y-2">
-            {data.upcomingDeliveries.map((o) => (
+            {data.recentOrders.map((o) => (
               <div key={o._id} className="flex items-center justify-between text-sm">
                 <span>{o.customerId?.name}</span>
-                <span className="text-gray-400 text-xs">{new Date(o.deliveryDate).toLocaleDateString()}</span>
+                <span className="text-gray-400 text-xs">{new Date(o.createdAt).toLocaleDateString()}</span>
               </div>
             ))}
-            {data.upcomingDeliveries.length === 0 && <p className="text-sm text-gray-400">Nothing upcoming.</p>}
+            {data.recentOrders.length === 0 && <p className="text-sm text-gray-400">Nothing in progress.</p>}
           </div>
         </div>
       </div>

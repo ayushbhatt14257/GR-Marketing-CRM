@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { Users, UserSquare2, ListChecks, Package, Trophy, AlarmClock, CalendarClock, BarChart3, FileSpreadsheet } from 'lucide-react';
+import { Users, UserSquare2, ListChecks, Package, Trophy, AlarmClock, CalendarClock, BarChart3, FileSpreadsheet, GitCompare } from 'lucide-react';
 import { dashboardApi } from '../../api/endpoints';
 import StatCard from '../../components/StatCard';
 
@@ -52,6 +52,34 @@ export default function AdminDashboard() {
               </div>
             ))}
           </div>
+        </div>
+      </div>
+
+      <div className="card p-4">
+        <p className="text-sm font-semibold mb-3 flex items-center gap-1.5"><GitCompare size={14} className="text-brand-500" /> FonFox vs Supreme</p>
+        <div className="grid grid-cols-2 gap-4">
+          {['fonfox', 'supreme'].map((cat) => {
+            const c = data.categoryComparison?.[cat] || { leads: 0, orders: 0, statusBreakdown: {} };
+            return (
+              <div key={cat} className="rounded-xl bg-gray-50 dark:bg-ink-800 p-3">
+                <p className="text-sm font-bold capitalize mb-2">{cat}</p>
+                <div className="flex items-center justify-between text-sm mb-1">
+                  <span className="text-gray-500">Leads</span><span className="font-bold">{c.leads}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm mb-2">
+                  <span className="text-gray-500">Orders</span><span className="font-bold">{c.orders}</span>
+                </div>
+                <div className="space-y-1 pt-2 border-t border-gray-200 dark:border-ink-700">
+                  {Object.entries(c.statusBreakdown).map(([status, count]) => (
+                    <div key={status} className="flex items-center justify-between text-xs">
+                      <span className="capitalize text-gray-400">{status.replace('_', ' ')}</span><span className="font-semibold">{count}</span>
+                    </div>
+                  ))}
+                  {Object.keys(c.statusBreakdown).length === 0 && <p className="text-xs text-gray-400">No orders yet.</p>}
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
 

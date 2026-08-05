@@ -29,11 +29,11 @@ function assertCategoryAccess(user, order) {
 
 // POST /api/orders
 const createOrder = asyncHandler(async (req, res) => {
-  const { customerId, ownerId, category, items, deliveryDate, remark } = req.body;
+  const { customerId, ownerId, category, items, remark } = req.body;
 
-  if (!customerId || !category || !Array.isArray(items) || !items.length || !deliveryDate) {
+  if (!customerId || !category || !Array.isArray(items) || !items.length) {
     res.status(400);
-    throw new Error('Customer, category, at least one product, and delivery date are required');
+    throw new Error('Customer, category, and at least one product are required');
   }
 
   // ownerId: whoever the order is credited to (dispatch/admin can create on behalf of a marketing user)
@@ -49,7 +49,6 @@ const createOrder = asyncHandler(async (req, res) => {
     createdBy: req.user._id,
     category,
     items: items.map((i) => ({ productId: i.productId, requestedQty: i.quantity })),
-    deliveryDate,
     remark: remark ? remark.trim() : '', // optional, unlike lead remark
     status: 'reserved',
   });
@@ -59,7 +58,7 @@ const createOrder = asyncHandler(async (req, res) => {
   if (String(effectiveOwnerId) !== String(req.user._id)) {
     await notify(effectiveOwnerId, {
       title: 'New order assigned',
-      message: `${req.user.name} created an order for you (delivery: ${new Date(deliveryDate).toLocaleDateString()})`,
+      message: `${req.user.name} created an order for you`,
       type: 'order_assigned',
       refId: order._id,
     });
@@ -71,7 +70,7 @@ const createOrder = asyncHandler(async (req, res) => {
 // GET /api/orders (paginated + filters)
 const listOrders = asyncHandler(async (req, res) => {
   const page = Math.max(parseInt(req.query.page) || 1, 1);
-  const limit = Math.min(parseInt(req.query.limit) || 25, 100);
+  const limit = Math.min(parseInt(req.query.limit) || 25, 500);
   const filter = { isDeleted: false };
 
   if (req.user.role === 'marketing') filter.ownerId = req.user._id;

@@ -13,7 +13,7 @@ const marketingDashboard = asyncHandler(async (req, res) => {
   const ownerId = req.query.userId && req.user.role !== 'marketing' ? req.query.userId : req.user._id;
   const now = new Date();
 
-  const [totalCustomers, pendingFollowUps, closedFollowUps, dueFollowUps, upcomingFollowUps, orders, upcomingDeliveries] = await Promise.all([
+  const [totalCustomers, pendingFollowUps, closedFollowUps, dueFollowUps, upcomingFollowUps, orders, recentOrders] = await Promise.all([
     Customer.countDocuments({ ownerId, isDeleted: false }),
     Lead.countDocuments({ ownerId, isFollowUpClosed: false, isDeleted: false }),
     Lead.countDocuments({ ownerId, isFollowUpClosed: true, isDeleted: false }),
@@ -23,7 +23,7 @@ const marketingDashboard = asyncHandler(async (req, res) => {
       .populate('customerId', 'name').sort({ nextFollowUpDate: 1 }).limit(10).lean(),
     Order.find({ ownerId, isDeleted: false }).populate('items.productId', 'name').lean(),
     Order.find({ ownerId, status: { $in: ['reserved', 'partially_dispatched'] }, isDeleted: false })
-      .sort({ deliveryDate: 1 })
+      .sort({ createdAt: -1 })
       .limit(5)
       .populate('customerId', 'name')
       .lean(),
@@ -53,7 +53,7 @@ const marketingDashboard = asyncHandler(async (req, res) => {
     upcomingFollowUps,
     totalOrders: orders.length,
     ordersByStatus,
-    upcomingDeliveries,
+    recentOrders,
     frequentProductsStock,
   });
 });
@@ -116,7 +116,30 @@ const adminDashboard = asyncHandler(async (req, res) => {
     { $group: { _id: '$talkRegarding', count: { $sum: 1 } } },
   ]);
 
-  res.json({ totalUsers, totalCustomers, totalLeads, totalOrders, ordersByStatus, funnel, leaderboard, dueFollowUpsCount, upcomingFollowUpsCount });
+  // FonFox vs Supreme side-by-side comparison — leads, orders, order status
+  // breakdown, and delivered/dispatched counts, all split by category in one
+  // pass per collection (never loop per-category, same lesson as elsewhere).
+  const [leadsByCategory, ordersByCategory, statusByCategory] = await Promise.all([
+    Lead.aggregate([{ $match: { isDeleted: false } }, { $group: { _id: '$category', count: { $sum: 1 } } }]),
+    Order.aggregate([{ $match: { isDeleted: false } }, { $group: { _id: '$category', count: { $sum: 1 } } }]),
+    Order.aggregate([
+      { $match: { isDeleted: false } },
+      { $group: { _id: { category: '$category', status: '$status' }, count: { $sum: 1 } } },
+    ]),
+  ]);
+
+  const buildCategoryComparison = () => {
+    const result = { fonfox: { leads: 0, orders: 0, statusBreakdown: {} }, supreme: { leads: 0, orders: 0, statusBreakdown: {} } };
+    leadsByCategory.forEach((l) => { if (result[l._id]) result[l._id].leads = l.count; });
+    ordersByCategory.forEach((o) => { if (result[o._id]) result[o._id].orders = o.count; });
+    statusByCategory.forEach((s) => {
+      if (result[s._id.category]) result[s._id.category].statusBreakdown[s._id.status] = s.count;
+    });
+    return result;
+  };
+  const categoryComparison = buildCategoryComparison();
+
+  res.json({ totalUsers, totalCustomers, totalLeads, totalOrders, ordersByStatus, funnel, leaderboard, dueFollowUpsCount, upcomingFollowUpsCount, categoryComparison });
 });
 
 // GET /api/dashboard/heatmap?userId=  -- last 365 days activity, GitHub-style

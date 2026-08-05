@@ -12,7 +12,6 @@ export default function NewOrderPage() {
   const [customer, setCustomer] = useState(null);
   const [category, setCategory] = useState('fonfox');
   const [products, setProducts] = useState([]);
-  const [deliveryDate, setDeliveryDate] = useState('');
   const [remark, setRemark] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -22,7 +21,6 @@ export default function NewOrderPage() {
     e.preventDefault();
     if (!customer) return toast.error('Select or create a customer first');
     if (!products.length) return toast.error('Select at least one product');
-    if (!deliveryDate) return toast.error('Delivery date is required');
 
     setSubmitting(true);
     try {
@@ -31,11 +29,10 @@ export default function NewOrderPage() {
         ownerId: customer.ownerId || user._id,
         category,
         items: products.map((p) => ({ productId: p.productId, quantity: p.quantity })),
-        deliveryDate,
         remark: remark.trim() || undefined,
       });
       toast.success('Order created!');
-      setCustomer(null); setProducts([]); setDeliveryDate(''); setRemark('');
+      setCustomer(null); setProducts([]); setRemark('');
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to create order');
     } finally {
@@ -64,14 +61,6 @@ export default function NewOrderPage() {
         <div>
           <label className="text-sm font-semibold mb-1.5 block">Products & quantity</label>
           <ProductPicker category={category} onCategoryChange={setCategory} selected={products} onChange={setProducts} mode="order" />
-        </div>
-
-        <div>
-          <label className="text-sm font-semibold mb-1.5 block">Delivery date</label>
-          <input
-            type="date" required value={deliveryDate} onChange={(e) => setDeliveryDate(e.target.value)}
-            className="input-field" min={new Date().toISOString().slice(0, 10)}
-          />
         </div>
 
         <div>
