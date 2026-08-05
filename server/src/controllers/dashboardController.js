@@ -116,25 +116,54 @@ const adminDashboard = asyncHandler(async (req, res) => {
     { $group: { _id: '$talkRegarding', count: { $sum: 1 } } },
   ]);
 
-  // FonFox vs Supreme side-by-side comparison — leads, orders, order status
-  // breakdown, and delivered/dispatched counts, all split by category in one
-  // pass per collection (never loop per-category, same lesson as elsewhere).
-  const [leadsByCategory, ordersByCategory, statusByCategory] = await Promise.all([
+  // FonFox vs Supreme side-by-side comparison — users, customers, leads,
+  // orders, and order-status breakdown, all split by category. Every piece
+  // here is computed with a fixed, small number of queries regardless of
+  // data size — never loop per-category.
+  const [leadsByCategory, ordersByCategory, statusByCategory, usersByAccess,
+    leadCustomersFonfox, leadCustomersSupreme, orderCustomersFonfox, orderCustomersSupreme] = await Promise.all([
     Lead.aggregate([{ $match: { isDeleted: false } }, { $group: { _id: '$category', count: { $sum: 1 } } }]),
     Order.aggregate([{ $match: { isDeleted: false } }, { $group: { _id: '$category', count: { $sum: 1 } } }]),
     Order.aggregate([
       { $match: { isDeleted: false } },
       { $group: { _id: { category: '$category', status: '$status' }, count: { $sum: 1 } } },
     ]),
+    User.aggregate([
+      { $match: { isActive: true, role: { $in: ['marketing', 'dispatch'] } } },
+      { $group: { _id: '$productAccess', count: { $sum: 1 } } },
+    ]),
+    Lead.distinct('customerId', { category: 'fonfox', isDeleted: false }),
+    Lead.distinct('customerId', { category: 'supreme', isDeleted: false }),
+    Order.distinct('customerId', { category: 'fonfox', isDeleted: false }),
+    Order.distinct('customerId', { category: 'supreme', isDeleted: false }),
   ]);
 
   const buildCategoryComparison = () => {
-    const result = { fonfox: { leads: 0, orders: 0, statusBreakdown: {} }, supreme: { leads: 0, orders: 0, statusBreakdown: {} } };
+    const result = {
+      fonfox: { activeUsers: 0, customers: 0, leads: 0, orders: 0, statusBreakdown: {} },
+      supreme: { activeUsers: 0, customers: 0, leads: 0, orders: 0, statusBreakdown: {} },
+    };
+
     leadsByCategory.forEach((l) => { if (result[l._id]) result[l._id].leads = l.count; });
     ordersByCategory.forEach((o) => { if (result[o._id]) result[o._id].orders = o.count; });
     statusByCategory.forEach((s) => {
       if (result[s._id.category]) result[s._id.category].statusBreakdown[s._id.status] = s.count;
     });
+
+    // Users with 'both' access are active for both categories, so they count
+    // toward each — the two numbers can legitimately sum to more than
+    // totalUsers, that's expected, not a bug.
+    usersByAccess.forEach((u) => {
+      if (u._id === 'fonfox') result.fonfox.activeUsers += u.count;
+      else if (u._id === 'supreme') result.supreme.activeUsers += u.count;
+      else if (u._id === 'both') { result.fonfox.activeUsers += u.count; result.supreme.activeUsers += u.count; }
+    });
+
+    // A customer counts toward a category if they have any lead OR order in
+    // it — a customer can legitimately appear in both.
+    result.fonfox.customers = new Set([...leadCustomersFonfox, ...orderCustomersFonfox].map(String)).size;
+    result.supreme.customers = new Set([...leadCustomersSupreme, ...orderCustomersSupreme].map(String)).size;
+
     return result;
   };
   const categoryComparison = buildCategoryComparison();

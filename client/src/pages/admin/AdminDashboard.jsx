@@ -56,23 +56,36 @@ export default function AdminDashboard() {
       </div>
 
       <div className="card p-4">
-        <p className="text-sm font-semibold mb-3 flex items-center gap-1.5"><GitCompare size={14} className="text-brand-500" /> FonFox vs Supreme</p>
-        <div className="grid grid-cols-2 gap-4">
+        <p className="text-sm font-semibold mb-4 flex items-center gap-1.5"><GitCompare size={14} className="text-brand-500" /> FonFox vs Supreme</p>
+        <div className="grid grid-cols-3 gap-2 text-sm">
+          <div />
+          <div className="text-center font-bold text-brand-600 dark:text-brand-300">FonFox</div>
+          <div className="text-center font-bold text-accent-600 dark:text-accent-400">Supreme</div>
+
+          {[
+            ['Active Users', 'activeUsers'],
+            ['Customers', 'customers'],
+            ['Leads', 'leads'],
+            ['Orders', 'orders'],
+          ].map(([label, key]) => (
+            <div key={key} className="contents">
+              <div className="text-gray-500 py-2 border-t border-gray-100 dark:border-ink-800">{label}</div>
+              <div className="text-center font-bold py-2 border-t border-gray-100 dark:border-ink-800">{data.categoryComparison?.fonfox?.[key] ?? 0}</div>
+              <div className="text-center font-bold py-2 border-t border-gray-100 dark:border-ink-800">{data.categoryComparison?.supreme?.[key] ?? 0}</div>
+            </div>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-gray-200 dark:border-ink-700">
           {['fonfox', 'supreme'].map((cat) => {
-            const c = data.categoryComparison?.[cat] || { leads: 0, orders: 0, statusBreakdown: {} };
+            const c = data.categoryComparison?.[cat] || { statusBreakdown: {} };
             return (
-              <div key={cat} className="rounded-xl bg-gray-50 dark:bg-ink-800 p-3">
-                <p className="text-sm font-bold capitalize mb-2">{cat}</p>
-                <div className="flex items-center justify-between text-sm mb-1">
-                  <span className="text-gray-500">Leads</span><span className="font-bold">{c.leads}</span>
-                </div>
-                <div className="flex items-center justify-between text-sm mb-2">
-                  <span className="text-gray-500">Orders</span><span className="font-bold">{c.orders}</span>
-                </div>
-                <div className="space-y-1 pt-2 border-t border-gray-200 dark:border-ink-700">
+              <div key={cat}>
+                <p className="text-xs font-semibold capitalize text-gray-400 mb-1.5">{cat} — orders by status</p>
+                <div className="space-y-1">
                   {Object.entries(c.statusBreakdown).map(([status, count]) => (
                     <div key={status} className="flex items-center justify-between text-xs">
-                      <span className="capitalize text-gray-400">{status.replace('_', ' ')}</span><span className="font-semibold">{count}</span>
+                      <span className="capitalize text-gray-500">{status.replace('_', ' ')}</span><span className="font-semibold">{count}</span>
                     </div>
                   ))}
                   {Object.keys(c.statusBreakdown).length === 0 && <p className="text-xs text-gray-400">No orders yet.</p>}
