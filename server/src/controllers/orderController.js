@@ -87,6 +87,18 @@ const listOrders = asyncHandler(async (req, res) => {
     filter.category = req.query.category;
   }
 
+  // Date range filter — based on entry date (createdAt), since delivery date
+  // is no longer collected. `to` is treated as inclusive of the whole day.
+  if (req.query.fromDate || req.query.toDate) {
+    filter.createdAt = {};
+    if (req.query.fromDate) filter.createdAt.$gte = new Date(req.query.fromDate);
+    if (req.query.toDate) {
+      const end = new Date(req.query.toDate);
+      end.setHours(23, 59, 59, 999);
+      filter.createdAt.$lte = end;
+    }
+  }
+
   const [items, total] = await Promise.all([
     Order.find(filter)
       .populate('customerId', 'name')

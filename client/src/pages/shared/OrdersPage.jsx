@@ -170,6 +170,8 @@ export default function OrdersPage() {
   const [orders, setOrders] = useState([]);
   const [status, setStatus] = useState('');
   const [category, setCategory] = useState('');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
   const [viewMode, setViewMode] = useState('list'); // 'list' | 'customer'
   const [page, setPage] = useState(1);
   const [pages, setPages] = useState(1);
@@ -184,12 +186,14 @@ export default function OrdersPage() {
     const params = viewMode === 'customer' ? { limit: 500 } : { page, limit: 20 };
     if (status) params.status = status;
     if (category) params.category = category;
+    if (fromDate) params.fromDate = fromDate;
+    if (toDate) params.toDate = toDate;
     const { data } = await orderApi.list(params);
     setOrders(data.items);
     setPages(data.pages);
   };
 
-  useEffect(() => { load(); }, [status, category, page, viewMode]);
+  useEffect(() => { load(); }, [status, category, fromDate, toDate, page, viewMode]);
   useEffect(() => {
     if (user?.role === 'admin') userApi.list({ role: 'marketing' }).then(({ data }) => setMarketingUsers(data));
   }, [user?.role]);
@@ -246,6 +250,16 @@ export default function OrdersPage() {
           ))}
         </div>
       )}
+
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        <span className="text-xs text-gray-400 font-medium">Entry date:</span>
+        <input type="date" value={fromDate} onChange={(e) => { setFromDate(e.target.value); setPage(1); }} className="input-field w-auto py-1.5 text-sm" />
+        <span className="text-xs text-gray-400">to</span>
+        <input type="date" value={toDate} onChange={(e) => { setToDate(e.target.value); setPage(1); }} className="input-field w-auto py-1.5 text-sm" />
+        {(fromDate || toDate) && (
+          <button onClick={() => { setFromDate(''); setToDate(''); setPage(1); }} className="text-xs text-red-500 hover:underline">Clear dates</button>
+        )}
+      </div>
 
       {viewMode === 'list' ? (
         <>
