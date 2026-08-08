@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { Zap, Truck, CheckCircle2, XCircle, ChevronDown, ChevronUp, UserCog, List, Users } from 'lucide-react';
+import { Zap, Truck, CheckCircle2, XCircle, ChevronDown, ChevronUp, UserCog, List, Users, Search, SlidersHorizontal, X } from 'lucide-react';
 import { orderApi, userApi } from '../../api/endpoints';
 import { useAuthStore } from '../../store/authStore';
+import IconInput from '../../components/IconInput';
 
 const STATUS_STYLES = {
   pending: 'bg-gray-100 text-gray-600 dark:bg-ink-800',
@@ -13,6 +14,18 @@ const STATUS_STYLES = {
   delivered: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10',
   cancelled: 'bg-red-50 text-red-600 dark:bg-red-500/10',
 };
+
+// Display labels — 'reserved' shows as "Pending/Reserved" everywhere in the UI;
+// the underlying status value in the database stays 'reserved' unchanged.
+const STATUS_LABELS = {
+  reserved: 'Pending/Reserved',
+  partially_dispatched: 'Partially Dispatched',
+  dispatched: 'Dispatched',
+  delivered: 'Delivered',
+  cancelled: 'Cancelled',
+  pending: 'Pending',
+};
+const statusLabel = (s) => STATUS_LABELS[s] || s.replace('_', ' ');
 
 function OrderRow({ order, onRefresh, canManage, marketingUsers }) {
   const [expanded, setExpanded] = useState(false);
@@ -68,7 +81,7 @@ function OrderRow({ order, onRefresh, canManage, marketingUsers }) {
         <div className="min-w-0">
           <div className="flex items-center gap-2 mb-1 flex-wrap">
             <p className="font-semibold">{order.customerId?.name}</p>
-            <span className={`badge ${STATUS_STYLES[order.status]} capitalize`}>{order.status.replace('_', ' ')}</span>
+            <span className={`badge ${STATUS_STYLES[order.status]}`}>{statusLabel(order.status)}</span>
             {order.priority === 'urgent' && <span className="badge bg-red-50 text-red-600 dark:bg-red-500/10 flex items-center gap-1"><Zap size={11} /> Urgent</span>}
             <span className="text-[10px] uppercase text-gray-400">{order.category}</span>
           </div>
@@ -147,7 +160,7 @@ function CustomerGroupCard({ customerName, orders, onRefresh, canManage, marketi
           <p className="text-xs text-gray-500 flex flex-wrap gap-x-2">
             {orders.length} order{orders.length === 1 ? '' : 's'}
             {Object.entries(statusCounts).map(([s, c]) => (
-              <span key={s} className={`badge ${STATUS_STYLES[s]} capitalize`}>{s.replace('_', ' ')} · {c}</span>
+              <span key={s} className={`badge ${STATUS_STYLES[s]}`}>{statusLabel(s)} · {c}</span>
             ))}
           </p>
         </div>
@@ -172,6 +185,9 @@ export default function OrdersPage() {
   const [category, setCategory] = useState('');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
+  const [searchInput, setSearchInput] = useState('');
+  const [search, setSearch] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
   const [viewMode, setViewMode] = useState('list'); // 'list' | 'customer'
   const [page, setPage] = useState(1);
   const [pages, setPages] = useState(1);
@@ -181,6 +197,13 @@ export default function OrdersPage() {
   // Restricted dispatch users never see the category toggle — their access
   // is already enforced server-side regardless of what's shown here.
   const showCategoryToggle = !(user?.role === 'dispatch' && user?.productAccess !== 'both');
+  const activeFilterCount = [category, fromDate, toDate].filter(Boolean).length;
+
+  // Debounce the customer-name search so it doesn't fire a request per keystroke.
+  useEffect(() => {
+    const t = setTimeout(() => { setSearch(searchInput); setPage(1); }, 350);
+    return () => clearTimeout(t);
+  }, [searchInput]);
 
   const load = async () => {
     const params = viewMode === 'customer' ? { limit: 500 } : { page, limit: 20 };
@@ -188,15 +211,20 @@ export default function OrdersPage() {
     if (category) params.category = category;
     if (fromDate) params.fromDate = fromDate;
     if (toDate) params.toDate = toDate;
+    if (search) params.search = search;
     const { data } = await orderApi.list(params);
     setOrders(data.items);
     setPages(data.pages);
   };
 
-  useEffect(() => { load(); }, [status, category, fromDate, toDate, page, viewMode]);
+  useEffect(() => { load(); }, [status, category, fromDate, toDate, search, page, viewMode]);
   useEffect(() => {
     if (user?.role === 'admin') userApi.list({ role: 'marketing' }).then(({ data }) => setMarketingUsers(data));
   }, [user?.role]);
+
+  const clearAllFilters = () => {
+    setCategory(''); setFromDate(''); setToDate(''); setPage(1);
+  };
 
   const groupedByCustomer = useMemo(() => {
     if (viewMode !== 'customer') return [];
@@ -233,32 +261,66 @@ export default function OrdersPage() {
         <p className="text-xs text-gray-400 mb-3 capitalize">Showing {user.productAccess} orders only, based on your assigned access.</p>
       )}
 
-      <div className="flex gap-2 mb-3 flex-wrap items-center">
-        {['', 'reserved', 'partially_dispatched', 'dispatched', 'delivered', 'cancelled'].map((s) => (
-          <button key={s} onClick={() => { setStatus(s); setPage(1); }} className={`chip ${status === s ? 'chip-active' : 'chip-inactive'} capitalize`}>
-            {s === '' ? 'All' : s.replace('_', ' ')}
+      {/* Organized filter card: search + status always visible, category/date tucked behind "Filters" */}
+      <div className="card p-3 mb-4 space-y-3">
+        <div className="flex flex-wrap gap-2 items-center">
+          <div className="flex-1 min-w-[220px]">
+            <IconInput icon={Search} placeholder="Search by customer name..." value={searchInput} onChange={(e) => setSearchInput(e.target.value)} />
+          </div>
+          <button
+            onClick={() => setShowFilters((v) => !v)}
+            className={`btn-secondary text-sm py-2.5 px-3 shrink-0 relative ${activeFilterCount > 0 ? 'ring-2 ring-brand-500' : ''}`}
+          >
+            <SlidersHorizontal size={14} /> Filters
+            {activeFilterCount > 0 && (
+              <span className="ml-1 w-4 h-4 rounded-full bg-brand-600 text-white text-[10px] font-bold flex items-center justify-center">{activeFilterCount}</span>
+            )}
           </button>
-        ))}
-      </div>
+        </div>
 
-      {showCategoryToggle && (
-        <div className="flex gap-2 mb-4">
-          {['', 'fonfox', 'supreme'].map((c) => (
-            <button key={c} onClick={() => { setCategory(c); setPage(1); }} className={`chip ${category === c ? 'chip-active' : 'chip-inactive'} capitalize`}>
-              {c === '' ? 'All categories' : c}
+        <div className="flex gap-2 flex-wrap">
+          {['', 'reserved', 'partially_dispatched', 'dispatched', 'delivered', 'cancelled'].map((s) => (
+            <button key={s} onClick={() => { setStatus(s); setPage(1); }} className={`chip ${status === s ? 'chip-active' : 'chip-inactive'}`}>
+              {s === '' ? 'All' : statusLabel(s)}
             </button>
           ))}
         </div>
-      )}
 
-      <div className="flex flex-wrap items-center gap-2 mb-4">
-        <span className="text-xs text-gray-400 font-medium">Entry date:</span>
-        <input type="date" value={fromDate} onChange={(e) => { setFromDate(e.target.value); setPage(1); }} className="input-field w-auto py-1.5 text-sm" />
-        <span className="text-xs text-gray-400">to</span>
-        <input type="date" value={toDate} onChange={(e) => { setToDate(e.target.value); setPage(1); }} className="input-field w-auto py-1.5 text-sm" />
-        {(fromDate || toDate) && (
-          <button onClick={() => { setFromDate(''); setToDate(''); setPage(1); }} className="text-xs text-red-500 hover:underline">Clear dates</button>
-        )}
+        <AnimatePresence>
+          {showFilters && (
+            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+              <div className="pt-3 border-t border-gray-100 dark:border-ink-800 space-y-3">
+                {showCategoryToggle && (
+                  <div>
+                    <p className="text-xs text-gray-400 font-medium mb-1.5">Category</p>
+                    <div className="flex gap-2 flex-wrap">
+                      {['', 'fonfox', 'supreme'].map((c) => (
+                        <button key={c} onClick={() => { setCategory(c); setPage(1); }} className={`chip ${category === c ? 'chip-active' : 'chip-inactive'} capitalize`}>
+                          {c === '' ? 'All categories' : c}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div>
+                  <p className="text-xs text-gray-400 font-medium mb-1.5">Entry date range</p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <input type="date" value={fromDate} onChange={(e) => { setFromDate(e.target.value); setPage(1); }} className="input-field w-auto py-1.5 text-sm" />
+                    <span className="text-xs text-gray-400">to</span>
+                    <input type="date" value={toDate} onChange={(e) => { setToDate(e.target.value); setPage(1); }} className="input-field w-auto py-1.5 text-sm" />
+                  </div>
+                </div>
+
+                {activeFilterCount > 0 && (
+                  <button onClick={clearAllFilters} className="flex items-center gap-1 text-xs text-red-500 hover:underline">
+                    <X size={12} /> Clear all filters
+                  </button>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {viewMode === 'list' ? (

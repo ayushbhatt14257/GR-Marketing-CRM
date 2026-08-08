@@ -1,6 +1,7 @@
 const asyncHandler = require('../utils/asyncHandler');
 const Order = require('../models/Order');
 const Product = require('../models/Product');
+const Customer = require('../models/Customer');
 const { getQueuePosition, getStockSummary } = require('../services/stockService');
 const { recordActivity } = require('../services/pointsEngine');
 const { notify } = require('../services/notificationService');
@@ -97,6 +98,17 @@ const listOrders = asyncHandler(async (req, res) => {
       end.setHours(23, 59, 59, 999);
       filter.createdAt.$lte = end;
     }
+  }
+
+  // Customer name search — resolves matching customers first, then filters
+  // orders by those IDs. Scoped automatically by whatever ownerId/category
+  // restriction is already in `filter` above (e.g. marketing users only ever
+  // search within their own customers, since filter.ownerId is already set).
+  if (req.query.search && req.query.search.trim()) {
+    const customerQuery = { name: { $regex: req.query.search.trim(), $options: 'i' }, isDeleted: false };
+    if (filter.ownerId) customerQuery.ownerId = filter.ownerId;
+    const matches = await Customer.find(customerQuery).select('_id').lean();
+    filter.customerId = { $in: matches.map((c) => c._id) };
   }
 
   const [items, total] = await Promise.all([
